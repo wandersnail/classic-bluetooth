@@ -3,6 +3,8 @@ package cn.wandersnail.bluetooth;
 
 import android.bluetooth.BluetoothDevice;
 
+import androidx.annotation.NonNull;
+
 import cn.wandersnail.commons.poster.MethodInfo;
 
 /**
@@ -19,13 +21,14 @@ class MethodInfoGenerator {
                 new MethodInfo.Parameter(int.class, state));
     }
 
-    static MethodInfo onConnectFailed(BluetoothDevice device, String msg, Throwable e) {
-        return new MethodInfo("onConnectFailed", new MethodInfo.Parameter(BluetoothDevice.class, device),
-                new MethodInfo.Parameter(String.class, msg), new MethodInfo.Parameter(Throwable.class, e));
-    }
-
     static MethodInfo onDataReceive(BluetoothDevice device, byte[] value) {
         return new MethodInfo("onDataReceive", new MethodInfo.Parameter(BluetoothDevice.class, device),
                 new MethodInfo.Parameter(byte[].class, value));
+    }
+
+    static MethodInfo onWrite(BluetoothDevice device, @NonNull String tag, @NonNull byte[] value, boolean result) {
+        return new MethodInfo("onWrite", new MethodInfo.Parameter(BluetoothDevice.class, device),
+                new MethodInfo.Parameter(String.class, tag), new MethodInfo.Parameter(byte[].class, value),
+                new MethodInfo.Parameter(boolean.class, result));
     }
 }

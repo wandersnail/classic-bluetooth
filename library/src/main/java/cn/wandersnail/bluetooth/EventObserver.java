@@ -4,7 +4,6 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import cn.wandersnail.commons.observer.Observer;
 
@@ -33,21 +32,22 @@ public interface EventObserver extends Observer {
     }
 
     /**
+     * 写入结果
+     *
+     * @param device 设备
+     * @param tag    写入时设置的tag
+     * @param value  要写入的数据
+     * @param result 写入结果
+     */
+    default void onWrite(@NonNull BluetoothDevice device, @NonNull String tag, @NonNull byte[] value, boolean result) {
+    }
+
+    /**
      * 连接状态变化
      *
      * @param device 设备
      * @param state  设备。状态{@link Connection#STATE_CONNECTED}，可能的值{@link Connection#STATE_RELEASED}等
      */
     default void onConnectionStateChanged(@NonNull BluetoothDevice device, int state) {
-    }
-
-    /**
-     * 连接失败
-     *
-     * @param device 设备
-     * @param msg    错误信息
-     * @param e      错误异常
-     */
-    default void onConnectFailed(@NonNull BluetoothDevice device, @NonNull String msg, @Nullable Throwable e) {
     }
 }

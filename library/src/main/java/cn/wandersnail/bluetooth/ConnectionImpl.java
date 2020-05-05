@@ -2,9 +2,13 @@ package cn.wandersnail.bluetooth;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import cn.wandersnail.commons.observer.Observable;
@@ -14,15 +18,18 @@ import cn.wandersnail.commons.poster.PosterDispatcher;
  * date: 2020/5/5 12:11
  * author: zengfansheng
  */
-class ConnectionImpl implements Connection {
+class ConnectionImpl extends Connection {
     private final BluetoothAdapter bluetoothAdapter;
     private final BluetoothDevice device;
-    private EventObserver observer;//伴生观察者
+    final EventObserver observer;//伴生观察者
     private boolean isReleased;//连接是否已释放
-    private final Observable observable;
-    private final PosterDispatcher posterDispatcher;
-    private final BTManager btManager;
-    private int state = Connection.STATE_DISCONNECTED;
+    final Observable observable;
+    final PosterDispatcher posterDispatcher;
+    final BTManager btManager;
+    int state = Connection.STATE_DISCONNECTED;    
+    private SocketConnection socketConnection;
+    private final List<SocketConnection.WriteData> writeQueue = new ArrayList<>();//请求队列
+    private volatile boolean writeRunning;
 
     ConnectionImpl(BTManager btManager, BluetoothAdapter bluetoothAdapter, BluetoothDevice device, EventObserver observer) {
         this.btManager = btManager;
@@ -40,28 +47,46 @@ class ConnectionImpl implements Connection {
     }
 
     @Override
-    public void connect() {
-        
+    public void connect(UUID uuid, ConnectCallbck callback) {
+        if (socketConnection != null && socketConnection.isConnected()) {
+            if (callback != null) {
+                callback.onFail("Already connected.", null);
+            }
+        } else {
+            socketConnection = new SocketConnection(this, device, uuid, callback);
+        }        
     }
-
-    @Override
-    public void connect(@NonNull UUID uuid) {
-
-    }
-
+    
     @Override
     public void disconnect() {
-
+        if (socketConnection != null) {
+            socketConnection.close();
+            socketConnection = null;
+        }
     }
 
     @Override
     public void release() {
-
+        release(false);
     }
 
     @Override
     public void releaseNoEvent() {
+        release(true);
+    }
 
+    private void release(boolean noEvent) {
+        if (!isReleased) {
+            isReleased = true;
+            clearQueue();
+            state = Connection.STATE_RELEASED;
+            Log.d("BTManager", "connection released!");
+            if (!noEvent) {
+                posterDispatcher.post(observer, MethodInfoGenerator.onConnectionStateChanged(device, state));
+                observable.notifyObservers(MethodInfoGenerator.onConnectionStateChanged(device, state));
+            }
+            btManager.releaseConnection(device);//从集合中删除
+        }
     }
 
     @Override
@@ -70,17 +95,72 @@ class ConnectionImpl implements Connection {
     }
 
     @Override
+    public void setState(int state) {
+        this.state = state;
+        posterDispatcher.post(observer, MethodInfoGenerator.onConnectionStateChanged(device, state));
+        observable.notifyObservers(MethodInfoGenerator.onConnectionStateChanged(device, state));
+    }
+
+    @Override
     public void clearQueue() {
-
+        synchronized (this) {
+            writeQueue.clear();
+        }
     }
 
     @Override
-    public void write(@NonNull byte[] value) {
-
+    public void write(@Nullable String tag, @NonNull byte[] value) {
+        write(tag, value, false);
     }
 
     @Override
-    public void writeImmediately(@NonNull byte[] value) {
-
+    public void writeImmediately(@Nullable String tag, @NonNull byte[] value) {
+        write(tag, value, true);
     }
+    
+    private void write(String tag, byte[] value, boolean immediately) {
+        if (isReleased || !bluetoothAdapter.isEnabled()) {
+            posterDispatcher.post(observer, MethodInfoGenerator.onWrite(device, tag, value, false));
+            observable.notifyObservers(MethodInfoGenerator.onWrite(device, tag, value, false));
+            observer.onWrite(device, tag, value, false);
+        } else {
+            synchronized (this) {
+                SocketConnection.WriteData writeData = new SocketConnection.WriteData(tag, value);
+                if (immediately) {
+                    writeQueue.add(0, writeData);
+                } else {
+                    writeQueue.add(writeData);
+                }
+                if (!writeRunning) {
+                    writeRunning = true;
+                    btManager.getExecutorService().execute(writeRunnable);
+                }
+            }
+        }
+    }
+    
+    private Runnable writeRunnable = new Runnable() {
+        @Override
+        public void run() {
+            try {
+                while (true) {
+                    SocketConnection.WriteData data;
+                    synchronized (this) {
+                        if (writeQueue.isEmpty()) {
+                            writeRunning = false;
+                            return;
+                        } else {
+                            data = writeQueue.remove(0);
+                        }
+                    }
+                    SocketConnection sc = socketConnection;
+                    if (sc != null) {
+                        sc.write(data);
+                    }
+                }
+            } finally {
+                writeRunning = false;
+            }
+        }
+    };
 }

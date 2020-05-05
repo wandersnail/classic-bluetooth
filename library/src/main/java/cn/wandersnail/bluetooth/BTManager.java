@@ -43,7 +43,7 @@ import cn.wandersnail.commons.poster.ThreadMode;
  */
 public class BTManager {
     public static final String DEBUG_TAG = "BTManager";
-    static volatile BTManager instance;
+    private static volatile BTManager instance;
     private static final Builder DEFAULT_BUILDER = new Builder();
     private final ExecutorService executorService;
     private final PosterDispatcher posterDispatcher;
@@ -63,7 +63,7 @@ public class BTManager {
         this(DEFAULT_BUILDER);
     }
 
-    BTManager(Builder builder) {
+    private BTManager(Builder builder) {
         tryGetApplication();
         if (builder.observable != null) {
             internalObservable = false;
@@ -152,7 +152,7 @@ public class BTManager {
             String action = intent.getAction();
             if (action != null) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                switch(action) {
+                switch (action) {
                     case BluetoothAdapter.ACTION_STATE_CHANGED:
                         if (bluetoothAdapter != null) {
                             //通知观察者蓝牙状态
@@ -165,7 +165,7 @@ public class BTManager {
                     case BluetoothAdapter.ACTION_DISCOVERY_STARTED:
                         isDiscovering = true;
                         handleDiscoveryCallback(true, null, -1, "");
-                        break; 
+                        break;
                     case BluetoothAdapter.ACTION_DISCOVERY_FINISHED:
                         isDiscovering = false;
                         handleDiscoveryCallback(false, null, -1, "");
@@ -174,11 +174,24 @@ public class BTManager {
                         if (device != null) {
                             handleDiscoveryCallback(false, device, 0, "");
                         }
-                        break;                    
-                    case BluetoothDevice.ACTION_BOND_STATE_CHANGED:
-                        
                         break;
-                }                
+                    case BluetoothDevice.ACTION_BOND_STATE_CHANGED:
+                        if (device != null) {
+                            int bondState = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, -1);
+                            if (bondState == BluetoothDevice.BOND_BONDED ||
+                                    bondState == BluetoothDevice.BOND_BONDING) {
+                                Collection<Connection> connections = getConnections();
+                                for (Connection connection : connections) {
+                                    if (device.equals(connection.getDevice())) {
+                                        connection.setState(bondState == BluetoothDevice.BOND_BONDED ?
+                                                Connection.STATE_BONDED : Connection.STATE_BONDING);
+                                        break;
+                                    }
+                                }
+                            }                            
+                        }
+                        break;
+                }
             }
         }
     }
@@ -300,7 +313,7 @@ public class BTManager {
     public boolean isDiscovering() {
         return isDiscovering;
     }
-    
+
     /**
      * 开始搜索
      */
@@ -323,7 +336,7 @@ public class BTManager {
                 Log.e(DEBUG_TAG, errorMsg);
                 return;
             }
-        }       
+        }
         bluetoothAdapter.startDiscovery();//开始搜索
     }
 
@@ -338,7 +351,7 @@ public class BTManager {
 
     //处理搜索回调
     private void handleDiscoveryCallback(final boolean start, @Nullable final BluetoothDevice device,
-                                           final int errorCode, final String errorMsg) {
+                                         final int errorCode, final String errorMsg) {
         posterDispatcher.post(ThreadMode.MAIN, () -> {
             for (DiscoveryListener listener : discoveryListeners) {
                 if (device != null) {
@@ -394,7 +407,7 @@ public class BTManager {
         }
         return null;
     }
-    
+
     /**
      * 创建连接
      *
@@ -541,7 +554,7 @@ public class BTManager {
             }
         }
     }
-    
+
     /**
      * 关闭所有连接并释放资源
      */
@@ -636,7 +649,7 @@ public class BTManager {
         } catch (Exception ignore) {
         }
     }
-    
+
     public static class Builder {
         private final static ExecutorService DEFAULT_EXECUTOR_SERVICE = Executors.newCachedThreadPool();
         ThreadMode methodDefaultThreadMode = ThreadMode.MAIN;
