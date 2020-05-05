@@ -1,0 +1,3 @@
+rootProject.name='classic bluetooth'
+include ':app'
+include ':library'
