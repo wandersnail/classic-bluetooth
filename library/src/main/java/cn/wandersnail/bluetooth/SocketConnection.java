@@ -27,7 +27,9 @@ class SocketConnection {
         try {
             tmp = device.createRfcommSocketToServiceRecord(uuid == null ? Connection.SPP_UUID : uuid);
         } catch (IOException e) {
-            Log.e("BTManager", "Socket's create() method failed", e);
+            if (BTManager.isDebugMode) {
+                Log.e(BTManager.DEBUG_TAG, "Socket's create() method failed");
+            }
             if (callback != null) {
                 callback.onFail("Connect failed: " + e.getMessage(), e);
             }
@@ -43,7 +45,9 @@ class SocketConnection {
                 inputStream = socket.getInputStream();
                 tmpOut = socket.getOutputStream();
             } catch (IOException e) {
-                Log.w("BTManager", "Connect failed: " + e.getMessage(), e);
+                if (BTManager.isDebugMode) {
+                    Log.w(BTManager.DEBUG_TAG, "Connect failed: " + e.getMessage());
+                }
                 try {
                     socket.close();
                 } catch (IOException ex) {
@@ -59,8 +63,12 @@ class SocketConnection {
             if (callback != null) {
                 callback.onSuccess();
             }
-            Log.d("BTManager", "Connected");
-            connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_CONNECTED));
+            if (BTManager.isDebugMode) {
+                Log.d(BTManager.DEBUG_TAG, "Connected");
+            }
+            if (connection.observer != null) {
+                connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_CONNECTED));
+            }
             connection.observable.notifyObservers(MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_CONNECTED));
             outStream = tmpOut;
             byte[] buffer = new byte[1024];
@@ -68,11 +76,22 @@ class SocketConnection {
             while (true) {
                 try {
                     len = inputStream.read(buffer);
-                    connection.observer.onDataReceive(device, Arrays.copyOf(buffer, len));
+                    byte[] data = Arrays.copyOf(buffer, len);
+                    if (BTManager.isDebugMode) {
+                        Log.d(BTManager.DEBUG_TAG, "Receive data =>> " + new String(data));
+                    }
+                    if (connection.observer != null) {
+                        connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onDataReceive(device, data));
+                    }
+                    connection.observable.notifyObservers(MethodInfoGenerator.onDataReceive(device, data));
                 } catch (IOException e) {
-                    Log.w("BTManager", "Input stream was disconnected", e);
-                    connection.state = Connection.STATE_CONNECTED;
-                    connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_DISCONNECTED));
+                    if (BTManager.isDebugMode) {
+                        Log.w(BTManager.DEBUG_TAG, "Disconnected: " + e.getMessage());
+                    }
+                    connection.state = Connection.STATE_DISCONNECTED;
+                    if (connection.observer != null) {
+                        connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_DISCONNECTED));
+                    }
                     connection.observable.notifyObservers(MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_DISCONNECTED));
                     break;
                 }
@@ -85,14 +104,20 @@ class SocketConnection {
         if (outStream != null) {
             try {
                 outStream.write(data.value);
-                connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onWrite(device, data.tag, data.value, true));
+                if (connection.observer != null) {
+                    connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onWrite(device, data.tag, data.value, true));
+                }
                 connection.observable.notifyObservers(MethodInfoGenerator.onWrite(device, data.tag, data.value, true));                
             } catch (IOException e) {
-                connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
+                if (connection.observer != null) {
+                    connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
+                }
                 connection.observable.notifyObservers(MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
             }
         } else {
-            connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
+            if (connection.observer != null) {
+                connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
+            }
             connection.observable.notifyObservers(MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
         }
     }
@@ -103,7 +128,9 @@ class SocketConnection {
                 socket.close();
                 socket = null;
             } catch (Exception e) {
-                Log.e("BTManager", "Could not close the client socket: " + e.getMessage());
+                if (BTManager.isDebugMode) {
+                    Log.e(BTManager.DEBUG_TAG, "Could not close the client socket: " + e.getMessage());
+                }
             }
         }
     }

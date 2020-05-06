@@ -21,11 +21,11 @@ public abstract class Connection {
     /**
      * 配对中
      */
-    public static final int STATE_BONDING = 1;
+    public static final int STATE_PAIRING = 1;
     /**
      * 已配对
      */
-    public static final int STATE_BONDED = 2;
+    public static final int STATE_PAIRED = 2;
     /**
      * 已连接
      */
@@ -39,6 +39,11 @@ public abstract class Connection {
      * 设置连接状态
      */
     abstract void setState(int state);
+
+    /**
+     * 是否已连接
+     */
+    public abstract boolean isConnected();
 
     @NonNull
     public abstract BluetoothDevice getDevice();

@@ -56,7 +56,12 @@ class ConnectionImpl extends Connection {
             socketConnection = new SocketConnection(this, device, uuid, callback);
         }        
     }
-    
+
+    @Override
+    public boolean isConnected() {
+        return state == STATE_CONNECTED;
+    }
+
     @Override
     public void disconnect() {
         if (socketConnection != null) {
@@ -77,12 +82,17 @@ class ConnectionImpl extends Connection {
 
     private void release(boolean noEvent) {
         if (!isReleased) {
-            isReleased = true;
             clearQueue();
+            disconnect();
+            isReleased = true;
             state = Connection.STATE_RELEASED;
-            Log.d("BTManager", "connection released!");
+            if (BTManager.isDebugMode) {
+                Log.d(BTManager.DEBUG_TAG, "connection released!");
+            }
             if (!noEvent) {
-                posterDispatcher.post(observer, MethodInfoGenerator.onConnectionStateChanged(device, state));
+                if (observer != null) {
+                    posterDispatcher.post(observer, MethodInfoGenerator.onConnectionStateChanged(device, state));
+                }
                 observable.notifyObservers(MethodInfoGenerator.onConnectionStateChanged(device, state));
             }
             btManager.releaseConnection(device);//从集合中删除
@@ -96,8 +106,13 @@ class ConnectionImpl extends Connection {
 
     @Override
     public void setState(int state) {
+        if (BTManager.isDebugMode) {
+            Log.d(BTManager.DEBUG_TAG, "state changed: " + state);
+        }
         this.state = state;
-        posterDispatcher.post(observer, MethodInfoGenerator.onConnectionStateChanged(device, state));
+        if (observer != null) {
+            posterDispatcher.post(observer, MethodInfoGenerator.onConnectionStateChanged(device, state));
+        }
         observable.notifyObservers(MethodInfoGenerator.onConnectionStateChanged(device, state));
     }
 

@@ -49,6 +49,7 @@ public class ScanActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scan);
         initViews();
+        BTManager.isDebugMode = true;
         BTManager.getInstance().addDiscoveryListener(scanListener);        
         initialize();
     }

@@ -58,6 +58,7 @@ public class BTManager {
     private final boolean internalObservable;
     private boolean isDiscovering;
     private final List<DiscoveryListener> discoveryListeners = new CopyOnWriteArrayList<>();
+    public static boolean isDebugMode;
 
     private BTManager() {
         this(DEFAULT_BUILDER);
@@ -184,7 +185,7 @@ public class BTManager {
                                 for (Connection connection : connections) {
                                     if (device.equals(connection.getDevice())) {
                                         connection.setState(bondState == BluetoothDevice.BOND_BONDED ?
-                                                Connection.STATE_BONDED : Connection.STATE_BONDING);
+                                                Connection.STATE_PAIRED : Connection.STATE_PAIRING);
                                         break;
                                     }
                                 }
@@ -223,7 +224,9 @@ public class BTManager {
         if (!isInitialized) {
             if (!tryAutoInit()) {
                 String msg = "The SDK has not been initialized, make sure to call BTManager.getInstance().initialize(Application) first.";
-                Log.e(DEBUG_TAG, msg);
+                if (BTManager.isDebugMode) {
+                    Log.e(DEBUG_TAG, msg);
+                }
                 return false;
             }
         } else if (application == null) {
@@ -328,12 +331,16 @@ public class BTManager {
             if (!isLocationEnabled(getContext())) {
                 String errorMsg = "Unable to scan for Bluetooth devices, the phone's location service is not turned on.";
                 handleDiscoveryCallback(false, null, DiscoveryListener.ERROR_LOCATION_SERVICE_CLOSED, errorMsg);
-                Log.e(DEBUG_TAG, errorMsg);
+                if (BTManager.isDebugMode) {
+                    Log.e(DEBUG_TAG, errorMsg);
+                }
                 return;
             } else if (noLocationPermission(getContext())) {
                 String errorMsg = "Unable to scan for Bluetooth devices, lack location permission.";
                 handleDiscoveryCallback(false, null, DiscoveryListener.ERROR_LACK_LOCATION_PERMISSION, errorMsg);
-                Log.e(DEBUG_TAG, errorMsg);
+                if (BTManager.isDebugMode) {
+                    Log.e(DEBUG_TAG, errorMsg);
+                }
                 return;
             }
         }
