@@ -43,7 +43,7 @@ class SocketConnection {
                 inputStream = socket.getInputStream();
                 tmpOut = socket.getOutputStream();
             } catch (IOException e) {
-                Log.e("BTManager", "Connect failed: " + e.getMessage(), e);
+                Log.w("BTManager", "Connect failed: " + e.getMessage(), e);
                 try {
                     socket.close();
                 } catch (IOException ex) {
@@ -59,6 +59,7 @@ class SocketConnection {
             if (callback != null) {
                 callback.onSuccess();
             }
+            Log.d("BTManager", "Connected");
             connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_CONNECTED));
             connection.observable.notifyObservers(MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_CONNECTED));
             outStream = tmpOut;
@@ -69,7 +70,7 @@ class SocketConnection {
                     len = inputStream.read(buffer);
                     connection.observer.onDataReceive(device, Arrays.copyOf(buffer, len));
                 } catch (IOException e) {
-                    Log.d("BTManager", "Input stream was disconnected", e);
+                    Log.w("BTManager", "Input stream was disconnected", e);
                     connection.state = Connection.STATE_CONNECTED;
                     connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_DISCONNECTED));
                     connection.observable.notifyObservers(MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_DISCONNECTED));
