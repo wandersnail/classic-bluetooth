@@ -163,7 +163,7 @@ public class ScanActivity extends AppCompatActivity {
         permissionsRequester.setCallback(list -> {
             
         });
-        permissionsRequester.checkAndRequest(getNeedPermissions());
+//        permissionsRequester.checkAndRequest(getNeedPermissions());
     }
 
     @Override
