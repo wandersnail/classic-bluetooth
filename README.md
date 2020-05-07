@@ -311,6 +311,7 @@ BTManager.getInstance().release();
 -keep class * implements cn.wandersnail.commons.observer.Observe {
 	public <methods>;
 }
+```
 
 ## Demo效果预览
 ![image](https://s1.ax1x.com/2020/05/07/YZBLHs.gif)
