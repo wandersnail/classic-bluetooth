@@ -10,6 +10,10 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.UUID;
 
+import cn.wandersnail.commons.observer.Observable;
+import cn.wandersnail.commons.poster.PosterDispatcher;
+import cn.wandersnail.commons.util.StringUtils;
+
 /**
  * date: 2020/5/5 20:53
  * author: zengfansheng
@@ -18,13 +22,25 @@ class SocketConnection {
     private BluetoothSocket socket;
     private BluetoothDevice device;
     private OutputStream outStream;
-    private ConnectionImpl connection;
+    private EventObserver observer;
+    private PosterDispatcher posterDispatcher;
+    private Observable observable;
     
-    SocketConnection(ConnectionImpl connection, BluetoothDevice device, UUID uuid, ConnectCallbck callback) {
-        this.connection = connection;
+    SocketConnection(ConnectionImpl connection, BluetoothDevice device, UUID uuid, ConnectCallback callback) {
         this.device = device;
+        observer = connection.observer;
+        posterDispatcher = connection.posterDispatcher;
+        observable = connection.observable;
         BluetoothSocket tmp;
         try {
+            connection.state = Connection.STATE_CONNECTING;
+            if (BTManager.isDebugMode) {
+                Log.w(BTManager.DEBUG_TAG, "Connecting...");
+            }
+            if (observer != null) {
+                posterDispatcher.post(observer, MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_CONNECTING));
+            }
+            observable.notifyObservers(MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_CONNECTING));
             tmp = device.createRfcommSocketToServiceRecord(uuid == null ? Connection.SPP_UUID : uuid);
         } catch (IOException e) {
             if (BTManager.isDebugMode) {
@@ -36,24 +52,21 @@ class SocketConnection {
             return;
         }
         socket = tmp;
-        connection.btManager.getExecutorService().execute(() -> {
+        BTManager btManager = connection.btManager;
+        btManager.getExecutorService().execute(() -> {
             InputStream inputStream;
             OutputStream tmpOut;
             try {
-                connection.btManager.stopDiscovery();//停止搜索
+                btManager.stopDiscovery();//停止搜索
                 socket.connect();
                 inputStream = socket.getInputStream();
                 tmpOut = socket.getOutputStream();
             } catch (IOException e) {
+                connection.state = Connection.STATE_DISCONNECTED;
                 if (BTManager.isDebugMode) {
                     Log.w(BTManager.DEBUG_TAG, "Connect failed: " + e.getMessage());
                 }
-                try {
-                    socket.close();
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                }
-                socket = null;
+                close();
                 if (callback != null) {
                     callback.onFail("Connect failed: " + e.getMessage(), e);
                 }
@@ -66,10 +79,10 @@ class SocketConnection {
             if (BTManager.isDebugMode) {
                 Log.d(BTManager.DEBUG_TAG, "Connected");
             }
-            if (connection.observer != null) {
-                connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_CONNECTED));
+            if (observer != null) {
+                posterDispatcher.post(observer, MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_CONNECTED));
             }
-            connection.observable.notifyObservers(MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_CONNECTED));
+            observable.notifyObservers(MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_CONNECTED));
             outStream = tmpOut;
             byte[] buffer = new byte[1024];
             int len;
@@ -78,25 +91,25 @@ class SocketConnection {
                     len = inputStream.read(buffer);
                     byte[] data = Arrays.copyOf(buffer, len);
                     if (BTManager.isDebugMode) {
-                        Log.d(BTManager.DEBUG_TAG, "Receive data =>> " + new String(data));
+                        Log.d(BTManager.DEBUG_TAG, "Receive data =>> " + StringUtils.toHex(data));
                     }
-                    if (connection.observer != null) {
-                        connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onDataReceive(device, data));
+                    if (observer != null) {
+                        posterDispatcher.post(observer, MethodInfoGenerator.onRead(device, data));
                     }
-                    connection.observable.notifyObservers(MethodInfoGenerator.onDataReceive(device, data));
+                    observable.notifyObservers(MethodInfoGenerator.onRead(device, data));
                 } catch (IOException e) {
                     if (BTManager.isDebugMode) {
                         Log.w(BTManager.DEBUG_TAG, "Disconnected: " + e.getMessage());
                     }
                     connection.state = Connection.STATE_DISCONNECTED;
-                    if (connection.observer != null) {
-                        connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_DISCONNECTED));
+                    if (observer != null) {
+                        posterDispatcher.post(observer, MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_DISCONNECTED));
                     }
-                    connection.observable.notifyObservers(MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_DISCONNECTED));
+                    observable.notifyObservers(MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_DISCONNECTED));
                     break;
                 }
             }
-            socket = null;
+            close();
         });
     }
 
@@ -104,21 +117,21 @@ class SocketConnection {
         if (outStream != null) {
             try {
                 outStream.write(data.value);
-                if (connection.observer != null) {
-                    connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onWrite(device, data.tag, data.value, true));
+                if (observer != null) {
+                    posterDispatcher.post(observer, MethodInfoGenerator.onWrite(device, data.tag, data.value, true));
                 }
-                connection.observable.notifyObservers(MethodInfoGenerator.onWrite(device, data.tag, data.value, true));                
+                observable.notifyObservers(MethodInfoGenerator.onWrite(device, data.tag, data.value, true));                
             } catch (IOException e) {
-                if (connection.observer != null) {
-                    connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
+                if (observer != null) {
+                    posterDispatcher.post(observer, MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
                 }
-                connection.observable.notifyObservers(MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
+                observable.notifyObservers(MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
             }
         } else {
-            if (connection.observer != null) {
-                connection.posterDispatcher.post(connection.observer, MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
+            if (observer != null) {
+                posterDispatcher.post(observer, MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
             }
-            connection.observable.notifyObservers(MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
+            observable.notifyObservers(MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
         }
     }
     
@@ -142,6 +155,7 @@ class SocketConnection {
     static class WriteData {
         String tag;
         byte[] value;
+        WriteCallback callback;
 
         WriteData(String tag, byte[] value) {
             this.tag = tag;

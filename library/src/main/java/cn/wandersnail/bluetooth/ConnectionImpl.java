@@ -13,6 +13,7 @@ import java.util.UUID;
 
 import cn.wandersnail.commons.observer.Observable;
 import cn.wandersnail.commons.poster.PosterDispatcher;
+import cn.wandersnail.commons.util.StringUtils;
 
 /**
  * date: 2020/5/5 12:11
@@ -47,8 +48,12 @@ class ConnectionImpl extends Connection {
     }
 
     @Override
-    public void connect(UUID uuid, ConnectCallbck callback) {
-        if (socketConnection != null && socketConnection.isConnected()) {
+    public void connect(UUID uuid, ConnectCallback callback) {
+        if (isReleased) {
+            if (callback != null) {
+                callback.onFail("Already released.", null);
+            }
+        } else if (socketConnection != null && socketConnection.isConnected()) {
             if (callback != null) {
                 callback.onFail("Already connected.", null);
             }
@@ -124,23 +129,30 @@ class ConnectionImpl extends Connection {
     }
 
     @Override
-    public void write(@Nullable String tag, @NonNull byte[] value) {
-        write(tag, value, false);
+    public void write(@Nullable String tag, @NonNull byte[] value, @Nullable WriteCallback callback) {
+        write(tag, value, false, callback);
     }
 
     @Override
-    public void writeImmediately(@Nullable String tag, @NonNull byte[] value) {
-        write(tag, value, true);
+    public void writeImmediately(@Nullable String tag, @NonNull byte[] value, @Nullable WriteCallback callback) {
+        write(tag, value, true, callback);
     }
     
-    private void write(String tag, byte[] value, boolean immediately) {
+    private void write(String tag, byte[] value, boolean immediately, @Nullable WriteCallback callback) {
+        tag = tag == null ? StringUtils.randomUuid() : tag;
         if (isReleased || !bluetoothAdapter.isEnabled()) {
-            posterDispatcher.post(observer, MethodInfoGenerator.onWrite(device, tag, value, false));
-            observable.notifyObservers(MethodInfoGenerator.onWrite(device, tag, value, false));
-            observer.onWrite(device, tag, value, false);
+            if (callback != null) {
+                callback.onWrite(device, tag, value, false);
+            } else {
+                if (observer != null) {
+                    posterDispatcher.post(observer, MethodInfoGenerator.onWrite(device, tag, value, false));
+                }
+                observable.notifyObservers(MethodInfoGenerator.onWrite(device, tag, value, false));
+            }
         } else {
             synchronized (this) {
                 SocketConnection.WriteData writeData = new SocketConnection.WriteData(tag, value);
+                writeData.callback = callback;
                 if (immediately) {
                     writeQueue.add(0, writeData);
                 } else {
