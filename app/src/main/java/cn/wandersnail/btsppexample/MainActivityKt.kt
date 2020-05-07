@@ -4,7 +4,7 @@ import android.bluetooth.BluetoothDevice
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import cn.wandersnail.bluetooth.BTManager
-import cn.wandersnail.bluetooth.ConnectCallbck
+import cn.wandersnail.bluetooth.ConnectCallback
 import cn.wandersnail.bluetooth.Connection
 import cn.wandersnail.bluetooth.EventObserver
 import cn.wandersnail.commons.poster.RunOn
@@ -12,20 +12,19 @@ import cn.wandersnail.commons.poster.ThreadMode
 import cn.wandersnail.commons.util.ToastUtils
 import kotlinx.android.synthetic.main.activity_main.*
 
-class MainActivity : AppCompatActivity(), EventObserver {
+class MainActivityKt : AppCompatActivity(), EventObserver {
     private var connection: Connection? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        BTManager.getInstance().bluetoothAdapter!!
         val device: BluetoothDevice = intent.getParcelableExtra("device")
         connection = BTManager.getInstance().createConnection(device, this)
         if (connection == null) {
             finish()
             return
         }
-        connection!!.connect(null, object : ConnectCallbck {
+        connection!!.connect(null, object : ConnectCallback {
             override fun onSuccess() {
                 
             }
@@ -37,7 +36,7 @@ class MainActivity : AppCompatActivity(), EventObserver {
         btnSend.setOnClickListener { 
             if (connection?.isConnected == true) {
                 if (etMsg.text?.isNotEmpty() == true) {
-                    connection?.write(null, etMsg.text!!.toString().toByteArray())
+                    connection?.write(null, etMsg.text!!.toString().toByteArray(), null)
                 }
             } else {
                 ToastUtils.showShort("未连接")
@@ -46,8 +45,12 @@ class MainActivity : AppCompatActivity(), EventObserver {
     }
 
     @RunOn(ThreadMode.MAIN)
-    override fun onDataReceive(device: BluetoothDevice, value: ByteArray) {
+    override fun onRead(device: BluetoothDevice, value: ByteArray) {
         tvLog.append("${String(value)}\n")
+    }
+
+    override fun onWrite(device: BluetoothDevice, tag: String, value: ByteArray, result: Boolean) {
+        
     }
 
     @RunOn(ThreadMode.MAIN)

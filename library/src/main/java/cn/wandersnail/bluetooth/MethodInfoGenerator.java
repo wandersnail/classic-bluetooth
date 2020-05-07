@@ -21,8 +21,8 @@ class MethodInfoGenerator {
                 new MethodInfo.Parameter(int.class, state));
     }
 
-    static MethodInfo onDataReceive(BluetoothDevice device, byte[] value) {
-        return new MethodInfo("onDataReceive", new MethodInfo.Parameter(BluetoothDevice.class, device),
+    static MethodInfo onRead(BluetoothDevice device, byte[] value) {
+        return new MethodInfo("onRead", new MethodInfo.Parameter(BluetoothDevice.class, device),
                 new MethodInfo.Parameter(byte[].class, value));
     }
 

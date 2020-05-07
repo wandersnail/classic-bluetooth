@@ -7,7 +7,7 @@ import androidx.annotation.Nullable;
  * date: 2020/5/5 19:44
  * author: zengfansheng
  */
-public interface ConnectCallbck {
+public interface ConnectCallback {
     /**
      * 连接成功
      */

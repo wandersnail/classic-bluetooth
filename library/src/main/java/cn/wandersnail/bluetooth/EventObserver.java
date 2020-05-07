@@ -28,7 +28,7 @@ public interface EventObserver extends Observer {
      * @param device 设备
      * @param value  收到的数据
      */
-    default void onDataReceive(@NonNull BluetoothDevice device, @NonNull byte[] value) {
+    default void onRead(@NonNull BluetoothDevice device, @NonNull byte[] value) {
     }
 
     /**

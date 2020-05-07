@@ -50,7 +50,7 @@ public class ScanActivity extends AppCompatActivity {
         setContentView(R.layout.activity_scan);
         initViews();
         BTManager.isDebugMode = true;
-        BTManager.getInstance().addDiscoveryListener(scanListener);        
+        BTManager.getInstance().addDiscoveryListener(discoveryListener);        
         initialize();
     }
 
@@ -62,7 +62,7 @@ public class ScanActivity extends AppCompatActivity {
         listAdapter = new ListAdapter(this, devList);
         lv.setAdapter(listAdapter);
         lv.setOnItemClickListener((parent, view, position, id) -> {
-            Intent intent = new Intent(ScanActivity.this, MainActivity.class);
+            Intent intent = new Intent(ScanActivity.this, MainActivityKt.class);
             intent.putExtra("device", devList.get(position));
             startActivity(intent);
         });
@@ -82,7 +82,7 @@ public class ScanActivity extends AppCompatActivity {
         Process.killProcess(Process.myPid());
     }
 
-    private DiscoveryListener scanListener = new DiscoveryListener() {
+    private DiscoveryListener discoveryListener = new DiscoveryListener() {
         @Override
         public void onDiscoveryStart() {
             invalidateOptionsMenu();
