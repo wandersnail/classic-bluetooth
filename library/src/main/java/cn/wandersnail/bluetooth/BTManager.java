@@ -328,21 +328,21 @@ public class BTManager {
             if (isDiscovering || !isBluetoothOn()) {
                 return;
             }
-//            if (!isLocationEnabled(getContext())) {
-//                String errorMsg = "Unable to scan for Bluetooth devices, the phone's location service is not turned on.";
-//                handleDiscoveryCallback(false, null, DiscoveryListener.ERROR_LOCATION_SERVICE_CLOSED, errorMsg);
-//                if (BTManager.isDebugMode) {
-//                    Log.e(DEBUG_TAG, errorMsg);
-//                }
-//                return;
-//            } else if (noLocationPermission(getContext())) {
-//                String errorMsg = "Unable to scan for Bluetooth devices, lack location permission.";
-//                handleDiscoveryCallback(false, null, DiscoveryListener.ERROR_LACK_LOCATION_PERMISSION, errorMsg);
-//                if (BTManager.isDebugMode) {
-//                    Log.e(DEBUG_TAG, errorMsg);
-//                }
-//                return;
-//            }
+            if (!isLocationEnabled(getContext())) {
+                String errorMsg = "Unable to scan for Bluetooth devices, the phone's location service is not turned on.";
+                handleDiscoveryCallback(false, null, DiscoveryListener.ERROR_LOCATION_SERVICE_CLOSED, errorMsg);
+                if (BTManager.isDebugMode) {
+                    Log.e(DEBUG_TAG, errorMsg);
+                }
+                return;
+            } else if (noLocationPermission(getContext())) {
+                String errorMsg = "Unable to scan for Bluetooth devices, lack location permission.";
+                handleDiscoveryCallback(false, null, DiscoveryListener.ERROR_LACK_LOCATION_PERMISSION, errorMsg);
+                if (BTManager.isDebugMode) {
+                    Log.e(DEBUG_TAG, errorMsg);
+                }
+                return;
+            }
         }
         bluetoothAdapter.startDiscovery();//开始搜索
     }

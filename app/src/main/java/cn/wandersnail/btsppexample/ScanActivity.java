@@ -119,11 +119,7 @@ public class ScanActivity extends AppCompatActivity {
     //需要进行检测的权限
     private List<String> getNeedPermissions() {
         List<String> list = new ArrayList<>();
-        if (getApplicationInfo().targetSdkVersion >= 29) {//target sdk版本在29以上的需要精确定位权限才能搜索到蓝牙设备
-            list.add(Manifest.permission.ACCESS_FINE_LOCATION);
-        } else {
-            list.add(Manifest.permission.ACCESS_COARSE_LOCATION);            
-        }
+        list.add(Manifest.permission.ACCESS_FINE_LOCATION);//target sdk版本在29以上的需要精确定位权限才能搜索到蓝牙设备
         return list;
     }
 
@@ -163,7 +159,7 @@ public class ScanActivity extends AppCompatActivity {
         permissionsRequester.setCallback(list -> {
             
         });
-//        permissionsRequester.checkAndRequest(getNeedPermissions());
+        permissionsRequester.checkAndRequest(getNeedPermissions());
     }
 
     @Override
