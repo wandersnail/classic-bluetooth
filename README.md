@@ -120,9 +120,10 @@ private DiscoveryListener discoveryListener = new DiscoveryListener() {
      * 搜索到蓝牙设备
      *
      * @param device 搜索到的设备
+     * @param rssi   信号强度
      */
 	@Override
-	public void onDeviceFound(@NonNull BluetoothDevice device) {
+	public void onDeviceFound(@NonNull BluetoothDevice device, int rssi) {
 		//搜索结果
 	}
 
