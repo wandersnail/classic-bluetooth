@@ -24,6 +24,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import cn.wandersnail.bluetooth.BTManager;
 import cn.wandersnail.bluetooth.DiscoveryListener;
@@ -41,9 +42,32 @@ public class ScanActivity extends AppCompatActivity {
     private ListAdapter listAdapter;
     private PullRefreshLayout refreshLayout;
     private TextView tvEmpty;
-    private List<BluetoothDevice> devList = new ArrayList<>();
+    private List<Device> devList = new ArrayList<>();
     private PermissionsRequester permissionsRequester;
 
+    private static class Device {
+        BluetoothDevice device;
+        int rssi;
+
+        Device(BluetoothDevice device, int rssi) {
+            this.device = device;
+            this.rssi = rssi;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Device)) return false;
+            Device device1 = (Device) o;
+            return device.equals(device1.device);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(device);
+        }
+    }
+    
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -63,7 +87,7 @@ public class ScanActivity extends AppCompatActivity {
         lv.setAdapter(listAdapter);
         lv.setOnItemClickListener((parent, view, position, id) -> {
             Intent intent = new Intent(ScanActivity.this, MainActivityKt.class);
-            intent.putExtra("device", devList.get(position));
+            intent.putExtra("device", devList.get(position).device);
             startActivity(intent);
         });
         refreshLayout.setOnRefreshListener(() -> {
@@ -107,10 +131,11 @@ public class ScanActivity extends AppCompatActivity {
         }
 
         @Override
-        public void onDeviceFound(@NonNull BluetoothDevice device) {
+        public void onDeviceFound(@NonNull BluetoothDevice device, int rssi) {
             tvEmpty.setVisibility(View.INVISIBLE);
-            if (!devList.contains(device)) {
-                devList.add(device);
+            Device dev = new Device(device, rssi);
+            if (!devList.contains(dev)) {
+                devList.add(dev);
                 listAdapter.notifyDataSetChanged();
             }
         }
@@ -179,23 +204,25 @@ public class ScanActivity extends AppCompatActivity {
         BTManager.getInstance().startDiscovery();
     }
 
-    private static class ListAdapter extends BaseListAdapter<BluetoothDevice> {
+    private static class ListAdapter extends BaseListAdapter<Device> {
 
-        ListAdapter(@NotNull Context context, @NotNull List<BluetoothDevice> list) {
+        ListAdapter(@NotNull Context context, @NotNull List<Device> list) {
             super(context, list);
         }
 
         @NotNull
         @Override
-        protected BaseViewHolder<BluetoothDevice> createViewHolder(int i) {
-            return new BaseViewHolder<BluetoothDevice>() {
+        protected BaseViewHolder<Device> createViewHolder(int i) {
+            return new BaseViewHolder<Device>() {
                 TextView tvName;
                 TextView tvAddr;
+                TextView tvRssi;
 
                 @Override
-                public void onBind(@NonNull BluetoothDevice device, int i) {
-                    tvName.setText(TextUtils.isEmpty(device.getName()) ? "N/A" : device.getName());
-                    tvAddr.setText(device.getAddress());
+                public void onBind(@NonNull Device device, int i) {
+                    tvName.setText(TextUtils.isEmpty(device.device.getName()) ? "N/A" : device.device.getName());
+                    tvAddr.setText(device.device.getAddress());
+                    tvRssi.setText("" + device.rssi);
                 }
 
                 @NotNull
@@ -204,6 +231,7 @@ public class ScanActivity extends AppCompatActivity {
                     View view = View.inflate(context, R.layout.item_scan, null);
                     tvName = view.findViewById(R.id.tvName);
                     tvAddr = view.findViewById(R.id.tvAddr);
+                    tvRssi = view.findViewById(R.id.tvRssi);
                     return view;
                 }
             };

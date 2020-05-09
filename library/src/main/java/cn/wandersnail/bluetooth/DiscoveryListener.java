@@ -37,8 +37,11 @@ public interface DiscoveryListener {
 
     /**
      * 搜索到蓝牙设备
+     *
+     * @param device 搜索到的蓝牙设备
+     * @param rssi   信息强度
      */
-    void onDeviceFound(@NonNull BluetoothDevice device);
+    void onDeviceFound(@NonNull BluetoothDevice device, int rssi);
 
     /**
      * 搜索错误
