@@ -35,7 +35,7 @@ class SocketConnection {
         try {
             connection.state = Connection.STATE_CONNECTING;
             if (BTManager.isDebugMode) {
-                Log.w(BTManager.DEBUG_TAG, "Connecting...");
+                Log.d(BTManager.DEBUG_TAG, "Connecting...");
             }
             if (observer != null) {
                 posterDispatcher.post(observer, MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_CONNECTING));
@@ -122,12 +122,18 @@ class SocketConnection {
                 }
                 observable.notifyObservers(MethodInfoGenerator.onWrite(device, data.tag, data.value, true));                
             } catch (IOException e) {
+                if (BTManager.isDebugMode) {
+                    Log.w(BTManager.DEBUG_TAG, "Write failed: " + e.getMessage());
+                }
                 if (observer != null) {
                     posterDispatcher.post(observer, MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
                 }
                 observable.notifyObservers(MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
             }
         } else {
+            if (BTManager.isDebugMode) {
+                Log.w(BTManager.DEBUG_TAG, "Write failed: OutputStream is null");
+            }
             if (observer != null) {
                 posterDispatcher.post(observer, MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
             }
