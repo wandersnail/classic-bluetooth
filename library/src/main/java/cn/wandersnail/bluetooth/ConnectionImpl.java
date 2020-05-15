@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.UUID;
 
 import cn.wandersnail.commons.observer.Observable;
+import cn.wandersnail.commons.poster.MethodInfo;
 import cn.wandersnail.commons.poster.PosterDispatcher;
 import cn.wandersnail.commons.util.StringUtils;
 
@@ -22,11 +23,11 @@ import cn.wandersnail.commons.util.StringUtils;
 class ConnectionImpl extends Connection {
     private final BluetoothAdapter bluetoothAdapter;
     private final BluetoothDevice device;
-    final EventObserver observer;//伴生观察者
+    private final EventObserver observer;//伴生观察者
     private boolean isReleased;//连接是否已释放
-    final Observable observable;
-    final PosterDispatcher posterDispatcher;
-    final BTManager btManager;
+    private final Observable observable;
+    private final PosterDispatcher posterDispatcher;
+    private final BTManager btManager;
     int state = Connection.STATE_DISCONNECTED;    
     private SocketConnection socketConnection;
     private final List<SocketConnection.WriteData> writeQueue = new ArrayList<>();//请求队列
@@ -47,6 +48,13 @@ class ConnectionImpl extends Connection {
         return device;
     }
 
+    void callback(MethodInfo info) {
+        if (observer != null) {
+            posterDispatcher.post(observer, info);
+        }
+        observable.notifyObservers(info);
+    }
+    
     @Override
     public void connect(UUID uuid, ConnectCallback callback) {
         if (isReleased) {
@@ -58,7 +66,7 @@ class ConnectionImpl extends Connection {
                 callback.onFail("Already connected.", null);
             }
         } else {
-            socketConnection = new SocketConnection(this, device, uuid, callback);
+            socketConnection = new SocketConnection(this, btManager, device, uuid, callback);
         }        
     }
 
@@ -95,10 +103,7 @@ class ConnectionImpl extends Connection {
                 Log.d(BTManager.DEBUG_TAG, "connection released!");
             }
             if (!noEvent) {
-                if (observer != null) {
-                    posterDispatcher.post(observer, MethodInfoGenerator.onConnectionStateChanged(device, state));
-                }
-                observable.notifyObservers(MethodInfoGenerator.onConnectionStateChanged(device, state));
+                callback(MethodInfoGenerator.onConnectionStateChanged(device, state));
             }
             btManager.releaseConnection(device);//从集合中删除
         }
@@ -115,12 +120,9 @@ class ConnectionImpl extends Connection {
             Log.d(BTManager.DEBUG_TAG, "state changed: " + state);
         }
         this.state = state;
-        if (observer != null) {
-            posterDispatcher.post(observer, MethodInfoGenerator.onConnectionStateChanged(device, state));
-        }
-        observable.notifyObservers(MethodInfoGenerator.onConnectionStateChanged(device, state));
+        callback(MethodInfoGenerator.onConnectionStateChanged(device, state));
     }
-
+    
     @Override
     public void clearQueue() {
         synchronized (this) {
@@ -144,10 +146,7 @@ class ConnectionImpl extends Connection {
             if (callback != null) {
                 callback.onWrite(device, tag, value, false);
             } else {
-                if (observer != null) {
-                    posterDispatcher.post(observer, MethodInfoGenerator.onWrite(device, tag, value, false));
-                }
-                observable.notifyObservers(MethodInfoGenerator.onWrite(device, tag, value, false));
+                this.callback(MethodInfoGenerator.onWrite(device, tag, value, false));
             }
         } else {
             synchronized (this) {
