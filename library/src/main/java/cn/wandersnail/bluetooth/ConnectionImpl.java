@@ -2,7 +2,6 @@ package cn.wandersnail.bluetooth;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -99,9 +98,7 @@ class ConnectionImpl extends Connection {
             disconnect();
             isReleased = true;
             state = Connection.STATE_RELEASED;
-            if (BTManager.isDebugMode) {
-                Log.d(BTManager.DEBUG_TAG, "connection released!");
-            }
+            BTLogger.instance.d(BTManager.DEBUG_TAG, "connection released!");
             if (!noEvent) {
                 callback(MethodInfoGenerator.onConnectionStateChanged(device, state));
             }
@@ -116,9 +113,7 @@ class ConnectionImpl extends Connection {
 
     @Override
     public void setState(int state) {
-        if (BTManager.isDebugMode) {
-            Log.d(BTManager.DEBUG_TAG, "state changed: " + state);
-        }
+        BTLogger.instance.d(BTManager.DEBUG_TAG, "state changed: " + state);
         this.state = state;
         callback(MethodInfoGenerator.onConnectionStateChanged(device, state));
     }

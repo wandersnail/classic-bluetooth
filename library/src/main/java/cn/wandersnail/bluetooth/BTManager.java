@@ -13,8 +13,8 @@ import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.ParcelUuid;
 import android.provider.Settings;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -23,6 +23,7 @@ import androidx.core.content.ContextCompat;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -59,6 +60,7 @@ public class BTManager {
     private final boolean internalObservable;
     private boolean isDiscovering;
     private final List<DiscoveryListener> discoveryListeners = new CopyOnWriteArrayList<>();
+    private final Map<String, ParcelUuid[]> sdpUuidMap = new HashMap<>();
     public static boolean isDebugMode;
 
     private BTManager() {
@@ -230,9 +232,7 @@ public class BTManager {
         if (!isInitialized) {
             if (!tryAutoInit()) {
                 String msg = "The SDK has not been initialized, make sure to call BTManager.getInstance().initialize(Application) first.";
-                if (BTManager.isDebugMode) {
-                    Log.e(DEBUG_TAG, msg);
-                }
+                BTLogger.instance.e(DEBUG_TAG, msg);
                 return false;
             }
         } else if (application == null) {
@@ -337,16 +337,12 @@ public class BTManager {
             if (!isLocationEnabled(getContext())) {
                 String errorMsg = "Unable to scan for Bluetooth devices, the phone's location service is not turned on.";
                 handleDiscoveryCallback(false, null, -120, DiscoveryListener.ERROR_LOCATION_SERVICE_CLOSED, errorMsg);
-                if (BTManager.isDebugMode) {
-                    Log.e(DEBUG_TAG, errorMsg);
-                }
+                BTLogger.instance.e(DEBUG_TAG, errorMsg);
                 return;
             } else if (noLocationPermission(getContext())) {
                 String errorMsg = "Unable to scan for Bluetooth devices, lack location permission.";
                 handleDiscoveryCallback(false, null, -120, DiscoveryListener.ERROR_LACK_LOCATION_PERMISSION, errorMsg);
-                if (BTManager.isDebugMode) {
-                    Log.e(DEBUG_TAG, errorMsg);
-                }
+                BTLogger.instance.e(DEBUG_TAG, errorMsg);
                 return;
             }
         }
@@ -622,6 +618,20 @@ public class BTManager {
         try {
             BluetoothDevice remoteDevice = bluetoothAdapter.getRemoteDevice(address);
             return remoteDevice.getBondState() != BluetoothDevice.BOND_NONE || remoteDevice.createBond();
+        } catch (Exception ignore) {
+            return false;
+        }
+    }
+
+    /**
+     * 开始配对
+     *
+     * @param device 设备
+     */
+    public boolean createBond(@NonNull BluetoothDevice device) {
+        checkStatus();
+        try {
+            return device.getBondState() != BluetoothDevice.BOND_NONE || device.createBond();
         } catch (Exception ignore) {
             return false;
         }
