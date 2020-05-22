@@ -45,6 +45,11 @@ public abstract class Connection {
     abstract void setState(int state);
 
     /**
+     * 连接是否已释放
+     */
+    public abstract boolean isReleased();
+    
+    /**
      * 是否已连接
      */
     public abstract boolean isConnected();

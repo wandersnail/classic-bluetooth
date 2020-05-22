@@ -27,9 +27,7 @@ class SocketConnection {
         this.connection = connection;
         BluetoothSocket tmp;
         try {
-            connection.state = Connection.STATE_CONNECTING;
-            BTLogger.instance.d(BTManager.DEBUG_TAG, "Connecting...");
-            connection.callback(MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_CONNECTING));
+            connection.changeState(Connection.STATE_CONNECTING, false);
             tmp = device.createRfcommSocketToServiceRecord(uuid == null ? Connection.SPP_UUID : uuid);
         } catch (IOException e) {
             onConnectFail(connection, callback, "Connect failed: Socket's create() method failed", e);
@@ -45,14 +43,15 @@ class SocketConnection {
                 inputStream = socket.getInputStream();
                 tmpOut = socket.getOutputStream();
             } catch (IOException e) {
-                onConnectFail(connection, callback, "Connect failed: " + e.getMessage(), e);
+                if (!connection.isReleased()) {
+                    onConnectFail(connection, callback, "Connect failed: " + e.getMessage(), e);
+                }
                 return;
             }
-            connection.state = Connection.STATE_CONNECTED;
+            connection.changeState(Connection.STATE_CONNECTED, true);
             if (callback != null) {
                 callback.onSuccess();
             }
-            BTLogger.instance.d(BTManager.DEBUG_TAG, "Connected");
             connection.callback(MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_CONNECTED));
             outStream = tmpOut;
             byte[] buffer = new byte[1024];
@@ -64,9 +63,9 @@ class SocketConnection {
                     BTLogger.instance.d(BTManager.DEBUG_TAG, "Receive data =>> " + StringUtils.toHex(data));
                     connection.callback(MethodInfoGenerator.onRead(device, data));
                 } catch (IOException e) {
-                    BTLogger.instance.w(BTManager.DEBUG_TAG, "Disconnected: " + e.getMessage());
-                    connection.state = Connection.STATE_DISCONNECTED;
-                    connection.callback(MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_DISCONNECTED));
+                    if (!connection.isReleased()) {
+                        connection.changeState(Connection.STATE_DISCONNECTED, false);
+                    }
                     break;
                 }
             }
@@ -75,7 +74,7 @@ class SocketConnection {
     }
 
     private void onConnectFail(ConnectionImpl connection, ConnectCallback callback, String errMsg, IOException e) {
-        connection.state = Connection.STATE_DISCONNECTED;
+        connection.changeState(Connection.STATE_DISCONNECTED, true);
         if (BTManager.isDebugMode) {
             Log.w(BTManager.DEBUG_TAG, errMsg);
         }
@@ -87,7 +86,7 @@ class SocketConnection {
     }
 
     void write(WriteData data) {
-        if (outStream != null) {
+        if (outStream != null && !connection.isReleased()) {
             try {
                 outStream.write(data.value);
                 BTLogger.instance.d(BTManager.DEBUG_TAG, "Write success. tag = " + data.tag);
@@ -96,7 +95,7 @@ class SocketConnection {
                 onWriteFail("Write failed: " + e.getMessage(), data);
             }
         } else {
-            onWriteFail("Write failed: OutputStream is null", data);
+            onWriteFail("Write failed: OutputStream is null or connection is released", data);
         }
     }
     

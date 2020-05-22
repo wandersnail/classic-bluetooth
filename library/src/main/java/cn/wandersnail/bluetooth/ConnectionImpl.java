@@ -27,7 +27,7 @@ class ConnectionImpl extends Connection {
     private final Observable observable;
     private final PosterDispatcher posterDispatcher;
     private final BTManager btManager;
-    int state = Connection.STATE_DISCONNECTED;    
+    private int state = Connection.STATE_DISCONNECTED;    
     private SocketConnection socketConnection;
     private final List<SocketConnection.WriteData> writeQueue = new ArrayList<>();//请求队列
     private volatile boolean writeRunning;
@@ -70,6 +70,11 @@ class ConnectionImpl extends Connection {
     }
 
     @Override
+    public boolean isReleased() {
+        return isReleased;
+    }
+
+    @Override
     public boolean isConnected() {
         return state == STATE_CONNECTED;
     }
@@ -97,11 +102,7 @@ class ConnectionImpl extends Connection {
             clearQueue();
             disconnect();
             isReleased = true;
-            state = Connection.STATE_RELEASED;
-            BTLogger.instance.d(BTManager.DEBUG_TAG, "connection released!");
-            if (!noEvent) {
-                callback(MethodInfoGenerator.onConnectionStateChanged(device, state));
-            }
+            changeState(Connection.STATE_RELEASED, noEvent);
             btManager.releaseConnection(device);//从集合中删除
         }
     }
@@ -113,9 +114,34 @@ class ConnectionImpl extends Connection {
 
     @Override
     public void setState(int state) {
-        BTLogger.instance.d(BTManager.DEBUG_TAG, "state changed: " + state);
+        changeState(state, false);
+    }
+
+    synchronized void changeState(int state, boolean noEvent) {
         this.state = state;
-        callback(MethodInfoGenerator.onConnectionStateChanged(device, state));
+        BTLogger.instance.d(BTManager.DEBUG_TAG, "Connection state changed: " + getStateDesc(state));
+        if (!noEvent) {
+            callback(MethodInfoGenerator.onConnectionStateChanged(device, state));
+        }
+    }
+    
+    private String getStateDesc(int state) {
+        switch(state) {
+            case Connection.STATE_CONNECTED:		
+        		return "connected";
+            case Connection.STATE_CONNECTING:
+                return "connecting";
+            case Connection.STATE_DISCONNECTED:
+                return "disconnected";
+            case Connection.STATE_PAIRED:
+                return "paired";
+            case Connection.STATE_PAIRING:
+                return "pairing";
+            case Connection.STATE_RELEASED:
+                return "released";    
+            default:		
+        		return "unknown state";
+        }
     }
     
     @Override
