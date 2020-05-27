@@ -192,8 +192,11 @@ public class BTManager {
                                 Collection<Connection> connections = getConnections();
                                 for (Connection connection : connections) {
                                     if (device.equals(connection.getDevice())) {
-                                        connection.setState(bondState == BluetoothDevice.BOND_BONDED ?
-                                                Connection.STATE_PAIRED : Connection.STATE_PAIRING);
+                                        //如果已连接，忽略
+                                        if (!connection.isConnected()) {
+                                            connection.setState(bondState == BluetoothDevice.BOND_BONDED ?
+                                                    Connection.STATE_PAIRED : Connection.STATE_PAIRING);                                            
+                                        }
                                         break;
                                     }
                                 }

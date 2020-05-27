@@ -118,6 +118,10 @@ class ConnectionImpl extends Connection {
     }
 
     synchronized void changeState(int state, boolean noEvent) {
+        //如果已连接状态比已配对先到，先通知已配对，后续已配对事件忽略
+        if (this.state == Connection.STATE_PAIRING && state == Connection.STATE_CONNECTED) {
+            setState(Connection.STATE_PAIRED);
+        }
         this.state = state;
         BTLogger.instance.d(BTManager.DEBUG_TAG, "Connection state changed: " + getStateDesc(state));
         if (!noEvent) {
