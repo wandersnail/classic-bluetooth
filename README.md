@@ -11,6 +11,7 @@
 
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/cn.wandersnail/classic-bluetooth/badge.svg)](https://maven-badges.herokuapp.com/maven-central/cn.wandersnail/classic-bluetooth)
 [![Download](https://api.bintray.com/packages/wandersnail/androidx/classic-bluetooth/images/download.svg)](https://bintray.com/wandersnail/androidx/classic-bluetooth/_latestVersion)
+[![Release](https://jitpack.io/v/wandersnail/classic-bluetooth.svg)](https://jitpack.io/#wandersnail/classic-bluetooth)
 [![](https://img.shields.io/badge/源码-github-blue.svg)](https://github.com/wandersnail/classic-bluetooth)
 [![](https://img.shields.io/badge/源码-码云-red.svg)](https://gitee.com/fszeng/classic-bluetooth)
 
