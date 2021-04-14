@@ -53,17 +53,17 @@ dependencies {
 	...
 	implementation 'cn.wandersnail:classic-bluetooth:latestVersion'
 	//额外依赖
-	implementation 'cn.wandersnail:common-full:latestVersion'
+	implementation 'cn.wandersnail:commons-android:latestVersion'
 }
 ```
 
-3. 如果从jcenter下载失败。在project的build.gradle里的repositories添加内容，最好两个都加上，添加完再次同步即可。
+3. 在project的build.gradle里的repositories添加内容，最好两个都加上，添加完再次同步即可。
 ```
 allprojects {
 	repositories {
 		...
 		mavenCentral()
-		maven { url 'https://dl.bintray.com/wandersnail/androidx/' }
+		maven { url 'https://jitpack.io' }
 	}
 }
 ```
