@@ -27,8 +27,8 @@ allprojects {
         google()
 //        jcenter()
         maven { url 'https://maven.aliyun.com/repository/jcenter' }
+        maven { url 'https://jitpack.io' }
         mavenCentral()
-        maven { url 'https://dl.bintray.com/wandersnail/androidx/' }
     }
     // 指定编码
     tasks.withType(JavaCompile) {
