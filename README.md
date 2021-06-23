@@ -1,11 +1,7 @@
 # Android传统（经典）蓝牙框架
 
-## 基于此库编写的调试助手——蓝牙调试宝，应用市场已上架，欢迎下载使用。下面放两个常用的应用市场地址
+## 基于此库编写的调试助手——蓝牙调试宝，应用市场已上架，欢迎下载使用。
 [![](https://img.shields.io/badge/Download-%E5%8D%8E%E4%B8%BA%E5%BA%94%E7%94%A8%E5%B8%82%E5%9C%BA-red)](https://appgallery1.huawei.com/#/app/C102224743)
-
-[![](https://img.shields.io/badge/Download-小米应用商店-yellow.svg)](http://app.mi.com/details?id=cn.wandersnail.spptool)
-
-> 第一次进入是主页的话，重新再进一次就是应用详情页了
 
 ## 最新版本
 
