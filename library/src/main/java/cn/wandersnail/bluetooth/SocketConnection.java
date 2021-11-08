@@ -7,6 +7,7 @@ import android.util.Log;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.UUID;
 
@@ -18,9 +19,9 @@ import cn.wandersnail.commons.util.StringUtils;
  */
 class SocketConnection {
     private BluetoothSocket socket;
-    private BluetoothDevice device;
+    private final BluetoothDevice device;
     private OutputStream outStream;
-    private ConnectionImpl connection;
+    private final ConnectionImpl connection;
     
     SocketConnection(ConnectionImpl connection, BTManager btManager, BluetoothDevice device, UUID uuid, ConnectCallback callback) {
         this.device = device;
@@ -30,8 +31,13 @@ class SocketConnection {
             connection.changeState(Connection.STATE_CONNECTING, false);
             tmp = device.createRfcommSocketToServiceRecord(uuid == null ? Connection.SPP_UUID : uuid);
         } catch (IOException e) {
-            onConnectFail(connection, callback, "Connect failed: Socket's create() method failed", e);
-            return;
+            try {
+                Method method = device.getClass().getMethod("createRfcommSocket", new Class[]{int.class});
+                tmp = (BluetoothSocket) method.invoke(device, 1);
+            } catch (Throwable t) {
+                onConnectFail(connection, callback, "Connect failed: Socket's create() method failed", e);
+                return;
+            }
         }
         socket = tmp;
         btManager.getExecutorService().execute(() -> {
