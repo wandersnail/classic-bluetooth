@@ -190,7 +190,7 @@ class ConnectionImpl extends Connection {
         }
     }
     
-    private Runnable writeRunnable = new Runnable() {
+    private final Runnable writeRunnable = new Runnable() {
         @Override
         public void run() {
             try {

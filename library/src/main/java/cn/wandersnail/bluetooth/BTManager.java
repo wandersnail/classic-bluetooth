@@ -13,7 +13,6 @@ import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.ParcelUuid;
 import android.provider.Settings;
 
 import androidx.annotation.NonNull;
@@ -23,7 +22,6 @@ import androidx.core.content.ContextCompat;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -60,7 +58,6 @@ public class BTManager {
     private final boolean internalObservable;
     private boolean isDiscovering;
     private final List<DiscoveryListener> discoveryListeners = new CopyOnWriteArrayList<>();
-    private final Map<String, ParcelUuid[]> sdpUuidMap = new HashMap<>();
     public static boolean isDebugMode;
 
     private BTManager() {
