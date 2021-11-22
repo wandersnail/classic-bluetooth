@@ -1,7 +1,10 @@
 package cn.wandersnail.bluetooth;
 
+import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.Context;
+import android.os.Build;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -53,6 +56,15 @@ class ConnectionImpl extends Connection {
         }
         observable.notifyObservers(info);
     }
+
+    //检查是否有连接权限
+    private boolean hasConnectPermission(Context context) {
+        //在31以上的需要连接权限才能连接蓝牙设备
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return PermissionChecker.hasPermission(context, Manifest.permission.BLUETOOTH_CONNECT);
+        }
+        return true;
+    }
     
     @Override
     public void connect(UUID uuid, ConnectCallback callback) {
@@ -65,6 +77,10 @@ class ConnectionImpl extends Connection {
                 callback.onFail("Already connected.", null);
             }
         } else {
+            if (!hasConnectPermission(btManager.getContext())) {
+                callback.onFail("Lack connect permission.", null);
+                return;
+            }
             socketConnection = new SocketConnection(this, btManager, device, uuid, callback);
         }        
     }

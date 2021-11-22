@@ -117,7 +117,7 @@ class SocketConnection {
             try {
                 socket.close();
                 socket = null;
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 BTLogger.instance.e(BTManager.DEBUG_TAG, "Could not close the client socket: " + e.getMessage());
             }
         }

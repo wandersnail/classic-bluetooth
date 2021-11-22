@@ -9,7 +9,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -17,7 +16,6 @@ import android.provider.Settings;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -114,7 +112,7 @@ public class BTManager {
             Object acThread = method.invoke(null);
             Method appMethod = acThread.getClass().getMethod("getApplication");
             application = (Application) appMethod.invoke(acThread);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             e.printStackTrace();
         }
     }
@@ -311,12 +309,21 @@ public class BTManager {
     //检查是否有定位权限
     private boolean noLocationPermission(Context context) {
         int sdkVersion = context.getApplicationInfo().targetSdkVersion;
-        if (sdkVersion >= 29) {//target sdk版本在29以上的需要精确定位权限才能搜索到蓝牙设备
-            return ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED;
+        if (sdkVersion >= Build.VERSION_CODES.Q) {//target sdk版本在29以上的需要精确定位权限才能搜索到蓝牙设备
+            return !PermissionChecker.hasPermission(context, Manifest.permission.ACCESS_FINE_LOCATION);
         } else {
-            return ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-                    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED;
+            return !PermissionChecker.hasPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) &&
+                    !PermissionChecker.hasPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION);
         }
+    }
+
+    //检查是否有搜索权限
+    private boolean noScanPermission(Context context) {
+        //在31以上的需要搜索权限才能搜索到蓝牙设备
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return !PermissionChecker.hasPermission(context, Manifest.permission.BLUETOOTH_SCAN);
+        }
+        return false;
     }
 
     public boolean isDiscovering() {
@@ -334,14 +341,21 @@ public class BTManager {
             if (isDiscovering || !isBluetoothOn()) {
                 return;
             }
-            if (!isLocationEnabled(getContext())) {
+            if (!isLocationEnabled(application)) {
                 String errorMsg = "Unable to scan for Bluetooth devices, the phone's location service is not turned on.";
                 handleDiscoveryCallback(false, null, -120, DiscoveryListener.ERROR_LOCATION_SERVICE_CLOSED, errorMsg);
                 BTLogger.instance.e(DEBUG_TAG, errorMsg);
                 return;
-            } else if (noLocationPermission(getContext())) {
+            }
+            if (noLocationPermission(application)) {
                 String errorMsg = "Unable to scan for Bluetooth devices, lack location permission.";
                 handleDiscoveryCallback(false, null, -120, DiscoveryListener.ERROR_LACK_LOCATION_PERMISSION, errorMsg);
+                BTLogger.instance.e(DEBUG_TAG, errorMsg);
+                return;
+            }
+            if (noScanPermission(application)) {
+                String errorMsg = "Unable to scan for Bluetooth devices, lack scan permission.";
+                handleDiscoveryCallback(false, null, -120, DiscoveryListener.ERROR_LACK_SCAN_PERMISSION, errorMsg);
                 BTLogger.instance.e(DEBUG_TAG, errorMsg);
                 return;
             }
@@ -603,7 +617,7 @@ public class BTManager {
         checkStatus();
         try {
             return bluetoothAdapter.getRemoteDevice(address).getBondState();
-        } catch (Exception e) {
+        } catch (Throwable e) {
             return BluetoothDevice.BOND_NONE;
         }
     }
@@ -618,7 +632,7 @@ public class BTManager {
         try {
             BluetoothDevice remoteDevice = bluetoothAdapter.getRemoteDevice(address);
             return remoteDevice.getBondState() != BluetoothDevice.BOND_NONE || remoteDevice.createBond();
-        } catch (Exception ignore) {
+        } catch (Throwable ignore) {
             return false;
         }
     }
@@ -632,7 +646,7 @@ public class BTManager {
         checkStatus();
         try {
             return device.getBondState() != BluetoothDevice.BOND_NONE || device.createBond();
-        } catch (Exception ignore) {
+        } catch (Throwable ignore) {
             return false;
         }
     }
@@ -649,7 +663,7 @@ public class BTManager {
                 if (filter == null || filter.accept(device)) {
                     try {
                         device.getClass().getMethod("removeBond").invoke(device);
-                    } catch (Exception ignore) {
+                    } catch (Throwable ignore) {
                     }
                 }
             }
@@ -669,7 +683,7 @@ public class BTManager {
             if (remoteDevice.getBondState() != BluetoothDevice.BOND_NONE) {
                 remoteDevice.getClass().getMethod("removeBond").invoke(remoteDevice);
             }
-        } catch (Exception ignore) {
+        } catch (Throwable ignore) {
         }
     }
 

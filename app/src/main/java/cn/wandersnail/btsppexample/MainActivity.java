@@ -13,7 +13,6 @@ import cn.wandersnail.bluetooth.BTManager;
 import cn.wandersnail.bluetooth.ConnectCallback;
 import cn.wandersnail.bluetooth.Connection;
 import cn.wandersnail.bluetooth.EventObserver;
-import cn.wandersnail.bluetooth.WriteCallback;
 
 /**
  * date: 2020/5/7 10:36
@@ -49,11 +48,8 @@ public class MainActivity extends AppCompatActivity implements EventObserver {
         findViewById(R.id.btnSend).setOnClickListener(v -> {
             if (connection.isConnected()) {
                 if (!etMsg.getText().toString().isEmpty()) {
-                    connection.write(null, etMsg.getText().toString().getBytes(), new WriteCallback() {
-                        @Override
-                        public void onWrite(@NonNull BluetoothDevice device, @NonNull String tag, @NonNull byte[] value, boolean result) {
-                            
-                        }
+                    connection.write(null, etMsg.getText().toString().getBytes(), (device1, tag, value, result) -> {
+                        
                     });
                 }
             }

@@ -18,9 +18,13 @@ class MainActivityKt : AppCompatActivity(), EventObserver {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        val device: BluetoothDevice = intent.getParcelableExtra("device")
+        val device: BluetoothDevice? = intent.getParcelableExtra("device")
+        if (device == null ) {
+            finish()
+            return
+        }
         connection = BTManager.getInstance().createConnection(device, this)
-        if (connection == null) {
+        if (connection == null ) {
             finish()
             return
         }
