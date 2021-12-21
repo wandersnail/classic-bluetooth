@@ -330,6 +330,15 @@ public class BTManager {
         return isDiscovering;
     }
 
+    //检查是否有连接权限
+    private boolean noConnectPermission(Context context) {
+        //在31以上的需要连接权限才能连接蓝牙设备
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return !PermissionChecker.hasPermission(context, Manifest.permission.BLUETOOTH_CONNECT);
+        }
+        return false;
+    }
+    
     /**
      * 开始搜索
      */
@@ -356,6 +365,13 @@ public class BTManager {
             if (noScanPermission(application)) {
                 String errorMsg = "Unable to scan for Bluetooth devices, lack scan permission.";
                 handleDiscoveryCallback(false, null, -120, DiscoveryListener.ERROR_LACK_SCAN_PERMISSION, errorMsg);
+                BTLogger.instance.e(DEBUG_TAG, errorMsg);
+                return;
+            }
+            //部分机型获取蓝牙名称需要连接权限，无语
+            if (noConnectPermission(application)) {
+                String errorMsg = "Unable to scan for Bluetooth devices, lack connect permission.";
+                handleDiscoveryCallback(false, null, -120, DiscoveryListener.ERROR_LACK_CONNECT_PERMISSION, errorMsg);
                 BTLogger.instance.e(DEBUG_TAG, errorMsg);
                 return;
             }
