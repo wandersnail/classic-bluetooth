@@ -383,7 +383,7 @@ public class BTManager {
      * 停止搜索
      */
     public void stopDiscovery() {
-        if (checkStatus() && bluetoothAdapter != null) {
+        if (checkStatus() && bluetoothAdapter != null && !noScanPermission(application)) {
             bluetoothAdapter.cancelDiscovery();
         }
     }
