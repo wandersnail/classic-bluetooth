@@ -96,7 +96,11 @@ class SocketConnection {
             try {
                 outStream.write(data.value);
                 BTLogger.instance.d(BTManager.DEBUG_TAG, "Write success. tag = " + data.tag);
-                connection.callback(MethodInfoGenerator.onWrite(device, data.tag, data.value, true));
+                if (data.callback == null) {
+                    connection.callback(MethodInfoGenerator.onWrite(device, data.tag, data.value, true));
+                } else {
+                    data.callback.onWrite(device, data.tag, data.value, true);
+                }
             } catch (IOException e) {
                 onWriteFail("Write failed: " + e.getMessage(), data);
             }
@@ -109,7 +113,11 @@ class SocketConnection {
         if (BTManager.isDebugMode) {
             Log.w(BTManager.DEBUG_TAG, msg);
         }
-        connection.callback(MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
+        if (data.callback == null) {
+            connection.callback(MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
+        } else {
+            data.callback.onWrite(device, data.tag, data.value, false);
+        }
     }
     
     void close() {
