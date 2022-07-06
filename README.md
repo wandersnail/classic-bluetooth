@@ -1,10 +1,12 @@
 # Android传统（经典）蓝牙框架
 
 ## 基于此库编写的调试助手——蓝牙调试宝，应用市场已上架，欢迎下载使用。
-[![](https://img.shields.io/badge/Download-%E5%8D%8E%E4%B8%BA%E5%BA%94%E7%94%A8%E5%B8%82%E5%9C%BA-red)](https://appgallery1.huawei.com/#/app/C102224743)
+[![](https://img.shields.io/badge/下载-%E5%8D%8E%E4%B8%BA%E5%BA%94%E7%94%A8%E5%B8%82%E5%9C%BA-red)](https://appgallery1.huawei.com/#/app/C102224743)
+
+## 学习提高
+[![](https://img.shields.io/badge/下载-java、python、vue、js、c++等各种视频教程-blue.svg)](https://p.zhekou.life)
 
 ## 最新版本
-
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/cn.wandersnail/classic-bluetooth/badge.svg)](https://maven-badges.herokuapp.com/maven-central/cn.wandersnail/classic-bluetooth)
 [![Release](https://jitpack.io/v/cn.wandersnail/classic-bluetooth.svg)](https://jitpack.io/#cn.wandersnail/classic-bluetooth)
 [![](https://img.shields.io/badge/源码-github-blue.svg)](https://github.com/wandersnail/classic-bluetooth)
