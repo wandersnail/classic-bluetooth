@@ -12,7 +12,6 @@ import java.util.UUID;
  * author: zengfansheng
  */
 public abstract class Connection {
-    public static final UUID SPP_UUID = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
 
     /**
      * 未连接
@@ -48,7 +47,7 @@ public abstract class Connection {
      * 连接是否已释放
      */
     public abstract boolean isReleased();
-    
+
     /**
      * 是否已连接
      */
@@ -60,10 +59,9 @@ public abstract class Connection {
     /**
      * 指定连接的UUID
      *
-     * @param uuid     如果传null，默认使用{@link #SPP_UUID}连接
      * @param callback 连接回调
      */
-    public abstract void connect(UUID uuid, ConnectCallback callback);
+    public abstract void connect(ConnectCallback callback);
 
     /**
      * 断开连接

@@ -11,7 +11,6 @@ import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 import cn.wandersnail.commons.observer.Observable;
 import cn.wandersnail.commons.poster.MethodInfo;
@@ -30,15 +29,17 @@ class ConnectionImpl extends Connection {
     private final Observable observable;
     private final PosterDispatcher posterDispatcher;
     private final BTManager btManager;
-    private int state = Connection.STATE_DISCONNECTED;    
+    private int state = Connection.STATE_DISCONNECTED;
     private SocketConnection socketConnection;
     private final List<SocketConnection.WriteData> writeQueue = new ArrayList<>();//请求队列
     private volatile boolean writeRunning;
+    private UUIDWrapper uuidWrapper;
 
-    ConnectionImpl(BTManager btManager, BluetoothAdapter bluetoothAdapter, BluetoothDevice device, EventObserver observer) {
+    ConnectionImpl(BTManager btManager, BluetoothAdapter bluetoothAdapter, BluetoothDevice device, UUIDWrapper uuidWrapper, EventObserver observer) {
         this.btManager = btManager;
         this.bluetoothAdapter = bluetoothAdapter;
         this.device = device;
+        this.uuidWrapper = uuidWrapper;
         this.observer = observer;
         observable = btManager.getObservable();
         posterDispatcher = btManager.getPosterDispatcher();
@@ -65,9 +66,9 @@ class ConnectionImpl extends Connection {
         }
         return true;
     }
-    
+
     @Override
-    public void connect(UUID uuid, ConnectCallback callback) {
+    public void connect(ConnectCallback callback) {
         if (isReleased) {
             if (callback != null) {
                 callback.onFail("Already released.", null);
@@ -81,8 +82,8 @@ class ConnectionImpl extends Connection {
                 callback.onFail("Lack connect permission.", null);
                 return;
             }
-            socketConnection = new SocketConnection(this, btManager, device, uuid, callback);
-        }        
+            socketConnection = new SocketConnection(this, btManager, device, uuidWrapper, callback);
+        }
     }
 
     @Override
@@ -119,7 +120,7 @@ class ConnectionImpl extends Connection {
             disconnect();
             isReleased = true;
             changeState(Connection.STATE_RELEASED, noEvent);
-            btManager.releaseConnection(device);//从集合中删除
+            btManager.releaseConnection(device, uuidWrapper);//从集合中删除
         }
     }
 
@@ -144,11 +145,11 @@ class ConnectionImpl extends Connection {
             callback(MethodInfoGenerator.onConnectionStateChanged(device, state));
         }
     }
-    
+
     private String getStateDesc(int state) {
-        switch(state) {
-            case Connection.STATE_CONNECTED:		
-        		return "connected";
+        switch (state) {
+            case Connection.STATE_CONNECTED:
+                return "connected";
             case Connection.STATE_CONNECTING:
                 return "connecting";
             case Connection.STATE_DISCONNECTED:
@@ -158,12 +159,12 @@ class ConnectionImpl extends Connection {
             case Connection.STATE_PAIRING:
                 return "pairing";
             case Connection.STATE_RELEASED:
-                return "released";    
-            default:		
-        		return "unknown state";
+                return "released";
+            default:
+                return "unknown state";
         }
     }
-    
+
     @Override
     public void clearQueue() {
         synchronized (this) {
@@ -180,7 +181,7 @@ class ConnectionImpl extends Connection {
     public void writeImmediately(@Nullable String tag, @NonNull byte[] value, @Nullable WriteCallback callback) {
         write(tag, value, true, callback);
     }
-    
+
     private void write(String tag, byte[] value, boolean immediately, @Nullable WriteCallback callback) {
         tag = tag == null ? StringUtils.randomUuid() : tag;
         if (isReleased || !bluetoothAdapter.isEnabled()) {
@@ -205,7 +206,7 @@ class ConnectionImpl extends Connection {
             }
         }
     }
-    
+
     private final Runnable writeRunnable = new Runnable() {
         @Override
         public void run() {

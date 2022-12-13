@@ -223,12 +223,13 @@ BTManager.getInstance().unregisterObserver(observer);
 
 ### 连接
 
-1. 建立连接
+1. 建立指定设备指定UUID的连接
 
 ```
-connection = BTManager.getInstance().createConnection(device, observer);//观察者监听连接状态
-//如果传null，默认使用{@link #SPP_UUID}连接
-connection.connect(uuid, new ConnectCallback() {
+//UUIDWrapper.useDefault()，使用默认的UUID(00001101-0000-1000-8000-00805f9b34fb)
+//UUIDWrapper.useCustom()，自定义UUID
+connection = BTManager.getInstance().createConnection(device, UUIDWrapper.useDefault(), observer);//观察者监听连接状态
+connection.connect(new ConnectCallback() {
     @Override
     public void onSuccess() {
       
@@ -244,14 +245,14 @@ connection.connect(uuid, new ConnectCallback() {
 2. 断开连接，还可再次连接
 
 ```
-BTManager.getInstance().disconnectConnection(device);//断开指定连接
+BTManager.getInstance().disconnectConnection(device, UUIDWrapper.useDefault());//断开指定设备的指定UUID的连接
 //BTManager.getInstance().disconnectAllConnections();//断开所有连接
 ```
 
 3. 释放连接，不可重连，需要重新建立连接
 
 ```
-BTManager.getInstance().releaseConnection(device);//释放指定连接
+BTManager.getInstance().releaseConnection(device, UUIDWrapper.useDefault());//释放指定设备的指定UUID的连接
 //BTManager.getInstance().releaseAllConnections();//释放所有连接
 ```
 

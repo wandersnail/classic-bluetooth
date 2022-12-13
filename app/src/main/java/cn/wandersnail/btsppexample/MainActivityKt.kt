@@ -2,42 +2,49 @@ package cn.wandersnail.btsppexample
 
 import android.bluetooth.BluetoothDevice
 import android.os.Bundle
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
-import cn.wandersnail.bluetooth.BTManager
-import cn.wandersnail.bluetooth.ConnectCallback
-import cn.wandersnail.bluetooth.Connection
-import cn.wandersnail.bluetooth.EventObserver
+import cn.wandersnail.bluetooth.*
+import cn.wandersnail.commons.helper.WifiHelper
 import cn.wandersnail.commons.poster.RunOn
 import cn.wandersnail.commons.poster.ThreadMode
 import cn.wandersnail.commons.util.ToastUtils
 import kotlinx.android.synthetic.main.activity_main.*
+import java.util.*
 
-class MainActivityKt : AppCompatActivity(), EventObserver {
+class MainActivityKt : AppCompatActivity, EventObserver {
     private var connection: Connection? = null
+
+    constructor()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         val device: BluetoothDevice? = intent.getParcelableExtra("device")
-        if (device == null ) {
+        if (device == null) {
             finish()
             return
         }
-        connection = BTManager.getInstance().createConnection(device, this)
-        if (connection == null ) {
+        connection =
+            BTManager.getInstance().createConnection(
+                device,
+                UUIDWrapper.useDefault(),
+                this
+            )
+        if (connection == null) {
             finish()
             return
         }
-        connection!!.connect(null, object : ConnectCallback {
+        connection!!.connect(object : ConnectCallback {
             override fun onSuccess() {
-                
+
             }
 
             override fun onFail(errMsg: String, e: Throwable?) {
                 runOnUiThread { tvLog.append("连接失败\n") }
             }
         })
-        btnSend.setOnClickListener { 
+        btnSend.setOnClickListener {
             if (connection?.isConnected == true) {
                 if (etMsg.text?.isNotEmpty() == true) {
                     connection?.write(null, etMsg.text!!.toString().toByteArray(), null)
@@ -54,7 +61,7 @@ class MainActivityKt : AppCompatActivity(), EventObserver {
     }
 
     override fun onWrite(device: BluetoothDevice, tag: String, value: ByteArray, result: Boolean) {
-        
+
     }
 
     @RunOn(ThreadMode.MAIN)

@@ -22,14 +22,20 @@ class SocketConnection {
     private final BluetoothDevice device;
     private OutputStream outStream;
     private final ConnectionImpl connection;
-    
-    SocketConnection(ConnectionImpl connection, BTManager btManager, BluetoothDevice device, UUID uuid, ConnectCallback callback) {
+
+    /**
+     * UUID缓存
+     */
+    private final UUIDWrapper uuidWrapper;
+
+    SocketConnection(ConnectionImpl connection, BTManager btManager, BluetoothDevice device, UUIDWrapper uuidWrapper, ConnectCallback callback) {
         this.device = device;
         this.connection = connection;
+        this.uuidWrapper = uuidWrapper;
         BluetoothSocket tmp;
         try {
             connection.changeState(Connection.STATE_CONNECTING, false);
-            tmp = device.createRfcommSocketToServiceRecord(uuid == null ? Connection.SPP_UUID : uuid);
+            tmp = device.createRfcommSocketToServiceRecord(uuidWrapper.getUuid());
         } catch (IOException e) {
             try {
                 Method method = device.getClass().getMethod("createRfcommSocket", new Class[]{int.class});
@@ -108,7 +114,7 @@ class SocketConnection {
             onWriteFail("Write failed: OutputStream is null or connection is released", data);
         }
     }
-    
+
     private void onWriteFail(String msg, WriteData data) {
         if (BTManager.isDebugMode) {
             Log.w(BTManager.DEBUG_TAG, msg);
@@ -119,7 +125,7 @@ class SocketConnection {
             data.callback.onWrite(device, data.tag, data.value, false);
         }
     }
-    
+
     void close() {
         if (socket != null) {
             try {
@@ -130,11 +136,11 @@ class SocketConnection {
             }
         }
     }
-    
+
     boolean isConnected() {
         return socket != null && socket.isConnected();
     }
-    
+
     static class WriteData {
         String tag;
         byte[] value;
