@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
@@ -190,12 +191,12 @@ public class BTManager {
                                         //如果已连接，忽略
                                         if (!connection.isConnected()) {
                                             connection.setState(bondState == BluetoothDevice.BOND_BONDED ?
-                                                    Connection.STATE_PAIRED : Connection.STATE_PAIRING);                                            
+                                                    Connection.STATE_PAIRED : Connection.STATE_PAIRING);
                                         }
                                         break;
                                     }
                                 }
-                            }                            
+                            }
                         }
                         break;
                 }
@@ -338,7 +339,7 @@ public class BTManager {
         }
         return false;
     }
-    
+
     /**
      * 开始搜索
      */
@@ -413,8 +414,8 @@ public class BTManager {
      * @return 返回创建的连接实例，创建失败则返回null
      */
     @Nullable
-    public Connection createConnection(@NonNull String address) {
-        return createConnection(address, null);
+    public Connection createConnection(@NonNull String address, @NonNull UUIDWrapper uuidWrapper) {
+        return createConnection(address, uuidWrapper, null);
     }
 
     /**
@@ -424,8 +425,8 @@ public class BTManager {
      * @return 返回创建的连接实例，创建失败则返回null
      */
     @Nullable
-    public Connection createConnection(@NonNull BluetoothDevice device) {
-        return createConnection(device, null);
+    public Connection createConnection(@NonNull BluetoothDevice device, @NonNull UUIDWrapper uuidWrapper) {
+        return createConnection(device, uuidWrapper, null);
     }
 
     /**
@@ -436,12 +437,13 @@ public class BTManager {
      * @return 返回创建的连接实例，创建失败则返回null
      */
     @Nullable
-    public Connection createConnection(@NonNull String address, EventObserver observer) {
+    public Connection createConnection(@NonNull String address, @NonNull UUIDWrapper uuidWrapper, EventObserver observer) {
         if (checkStatus()) {
             Objects.requireNonNull(address, "address can't be null");
+            Objects.requireNonNull(uuidWrapper, "uuidWrapper can't be null");
             BluetoothDevice remoteDevice = bluetoothAdapter.getRemoteDevice(address);
             if (remoteDevice != null) {
-                return createConnection(remoteDevice, observer);
+                return createConnection(remoteDevice, uuidWrapper, observer);
             }
         }
         return null;
@@ -455,20 +457,36 @@ public class BTManager {
      * @return 返回创建的连接实例，创建失败则返回null
      */
     @Nullable
-    public Connection createConnection(@NonNull BluetoothDevice device, EventObserver observer) {
+    public Connection createConnection(@NonNull BluetoothDevice device, @NonNull UUIDWrapper uuidWrapper, EventObserver observer) {
         if (checkStatus()) {
             Objects.requireNonNull(device, "device can't be null");
-            Connection connection = connectionMap.remove(device.getAddress());
+            Objects.requireNonNull(uuidWrapper, "uuidWrapper can't be null");
+
+            String key = _getConnectionMapKey(device.getAddress(), uuidWrapper);
+
+            Connection connection = connectionMap.remove(key);
             //如果连接已存在，先释放掉
             if (connection != null) {
                 connection.releaseNoEvent();
             }
-            connection = new ConnectionImpl(this, bluetoothAdapter, device, observer);
-            connectionMap.put(device.getAddress(), connection);
-            addressList.add(device.getAddress());
+            connection = new ConnectionImpl(this, bluetoothAdapter, device, uuidWrapper, observer);
+            connectionMap.put(key, connection);
+            addressList.add(key);
             return connection;
         }
         return null;
+    }
+
+    /**
+     * 获取集合map用到KEY
+     *
+     * @param macAddress  蓝牙设备地址
+     * @param uuidWrapper UUID包装器
+     * @return KEY
+     */
+    private String _getConnectionMapKey(@NonNull String macAddress, UUIDWrapper uuidWrapper) {
+        UUID uuid = uuidWrapper.getUuid();
+        return macAddress + ":" + uuid;
     }
 
     /**
@@ -485,8 +503,8 @@ public class BTManager {
     @NonNull
     public List<Connection> getOrderedConnections() {
         List<Connection> list = new ArrayList<>();
-        for (String address : addressList) {
-            Connection connection = connectionMap.get(address);
+        for (String key : addressList) {
+            Connection connection = connectionMap.get(key);
             if (connection != null) {
                 list.add(connection);
             }
@@ -511,21 +529,21 @@ public class BTManager {
     }
 
     @Nullable
-    public Connection getConnection(BluetoothDevice device) {
-        return device == null ? null : connectionMap.get(device.getAddress());
+    public Connection getConnection(BluetoothDevice device, @NonNull UUIDWrapper uuidWrapper) {
+        return device == null ? null : connectionMap.get(_getConnectionMapKey(device.getAddress(), uuidWrapper));
     }
 
     @Nullable
-    public Connection getConnection(String address) {
-        return address == null ? null : connectionMap.get(address);
+    public Connection getConnection(String address, @NonNull UUIDWrapper uuidWrapper) {
+        return address == null ? null : connectionMap.get(_getConnectionMapKey(address, uuidWrapper));
     }
 
     /**
      * 断开连接
      */
-    public void disconnectConnection(BluetoothDevice device) {
+    public void disconnectConnection(BluetoothDevice device, @NonNull UUIDWrapper uuidWrapper) {
         if (checkStatus() && device != null) {
-            Connection connection = connectionMap.get(device.getAddress());
+            Connection connection = connectionMap.get(_getConnectionMapKey(device.getAddress(), uuidWrapper));
             if (connection != null) {
                 connection.disconnect();
             }
@@ -535,9 +553,9 @@ public class BTManager {
     /**
      * 断开连接
      */
-    public void disconnectConnection(String address) {
+    public void disconnectConnection(String address, @NonNull UUIDWrapper uuidWrapper) {
         if (checkStatus() && address != null) {
-            Connection connection = connectionMap.get(address);
+            Connection connection = connectionMap.get(_getConnectionMapKey(address, uuidWrapper));
             if (connection != null) {
                 connection.disconnect();
             }
@@ -571,10 +589,10 @@ public class BTManager {
     /**
      * 释放连接
      */
-    public void releaseConnection(String address) {
+    public void releaseConnection(String address, @NonNull UUIDWrapper uuidWrapper) {
         if (checkStatus() && address != null) {
             addressList.remove(address);
-            Connection connection = connectionMap.remove(address);
+            Connection connection = connectionMap.remove(_getConnectionMapKey(address, uuidWrapper));
             if (connection != null) {
                 connection.release();
             }
@@ -584,10 +602,10 @@ public class BTManager {
     /**
      * 释放连接
      */
-    public void releaseConnection(BluetoothDevice device) {
+    public void releaseConnection(BluetoothDevice device, @NonNull UUIDWrapper uuidWrapper) {
         if (checkStatus() && device != null) {
             addressList.remove(device.getAddress());
-            Connection connection = connectionMap.remove(device.getAddress());
+            Connection connection = connectionMap.remove(_getConnectionMapKey(device.getAddress(), uuidWrapper));
             if (connection != null) {
                 connection.release();
             }

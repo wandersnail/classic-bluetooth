@@ -13,6 +13,7 @@ import cn.wandersnail.bluetooth.BTManager;
 import cn.wandersnail.bluetooth.ConnectCallback;
 import cn.wandersnail.bluetooth.Connection;
 import cn.wandersnail.bluetooth.EventObserver;
+import cn.wandersnail.bluetooth.UUIDWrapper;
 
 /**
  * date: 2020/5/7 10:36
@@ -21,22 +22,22 @@ import cn.wandersnail.bluetooth.EventObserver;
 public class MainActivity extends AppCompatActivity implements EventObserver {
     private Connection connection;
     private TextView tvLog;
-    
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         tvLog = findViewById(R.id.tvLog);
         BluetoothDevice device = getIntent().getParcelableExtra("device");
-        connection = BTManager.getInstance().createConnection(device, this);
+        connection = BTManager.getInstance().createConnection(device, UUIDWrapper.useDefault(), this);
         if (connection == null) {
             finish();
             return;
         }
-        connection.connect(null, new ConnectCallback() {
+        connection.connect(new ConnectCallback() {
             @Override
             public void onSuccess() {
-                
+
             }
 
             @Override
@@ -49,12 +50,12 @@ public class MainActivity extends AppCompatActivity implements EventObserver {
             if (connection.isConnected()) {
                 if (!etMsg.getText().toString().isEmpty()) {
                     connection.write(null, etMsg.getText().toString().getBytes(), (device1, tag, value, result) -> {
-                        
+
                     });
                 }
             }
         });
     }
-    
-    
+
+
 }
