@@ -16,19 +16,19 @@ class MethodInfoGenerator {
         return new MethodInfo("onBluetoothAdapterStateChanged", new MethodInfo.Parameter(int.class, state));
     }
 
-    static MethodInfo onConnectionStateChanged(BluetoothDevice device, int state) {
+    static MethodInfo onConnectionStateChanged(@NonNull BluetoothDevice device, @NonNull UUIDWrapper wrapper, int state) {
         return new MethodInfo("onConnectionStateChanged", new MethodInfo.Parameter(BluetoothDevice.class, device),
-                new MethodInfo.Parameter(int.class, state));
+                new MethodInfo.Parameter(UUIDWrapper.class, wrapper), new MethodInfo.Parameter(int.class, state));
     }
 
-    static MethodInfo onRead(BluetoothDevice device, byte[] value) {
+    static MethodInfo onRead(@NonNull BluetoothDevice device, @NonNull UUIDWrapper wrapper, byte[] value) {
         return new MethodInfo("onRead", new MethodInfo.Parameter(BluetoothDevice.class, device),
-                new MethodInfo.Parameter(byte[].class, value));
+                new MethodInfo.Parameter(UUIDWrapper.class, wrapper), new MethodInfo.Parameter(byte[].class, value));
     }
 
-    static MethodInfo onWrite(BluetoothDevice device, @NonNull String tag, @NonNull byte[] value, boolean result) {
+    static MethodInfo onWrite(@NonNull BluetoothDevice device, @NonNull UUIDWrapper wrapper, @NonNull String tag, @NonNull byte[] value, boolean result) {
         return new MethodInfo("onWrite", new MethodInfo.Parameter(BluetoothDevice.class, device),
-                new MethodInfo.Parameter(String.class, tag), new MethodInfo.Parameter(byte[].class, value),
-                new MethodInfo.Parameter(boolean.class, result));
+                new MethodInfo.Parameter(UUIDWrapper.class, wrapper), new MethodInfo.Parameter(String.class, tag),
+                new MethodInfo.Parameter(byte[].class, value), new MethodInfo.Parameter(boolean.class, result));
     }
 }

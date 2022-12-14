@@ -343,6 +343,7 @@ public class BTManager {
     /**
      * 开始搜索
      */
+    @SuppressLint("MissingPermission")
     public void startDiscovery() {
         if (!checkStatus()) {
             return;
@@ -383,6 +384,7 @@ public class BTManager {
     /**
      * 停止搜索
      */
+    @SuppressLint("MissingPermission")
     public void stopDiscovery() {
         if (checkStatus() && bluetoothAdapter != null && !noScanPermission(application)) {
             bluetoothAdapter.cancelDiscovery();
@@ -615,6 +617,7 @@ public class BTManager {
     /**
      * 关闭所有连接并释放资源
      */
+    @SuppressLint("MissingPermission")
     public synchronized void release() {
         if (broadcastReceiver != null) {
             application.unregisterReceiver(broadcastReceiver);
@@ -647,6 +650,7 @@ public class BTManager {
      *
      * @return {@link BluetoothDevice#BOND_NONE}，{@link BluetoothDevice#BOND_BONDED}，{@link BluetoothDevice#BOND_BONDING}
      */
+    @SuppressLint("MissingPermission")
     public int getBondState(@NonNull String address) {
         checkStatus();
         try {
@@ -661,6 +665,7 @@ public class BTManager {
      *
      * @param address 设备地址
      */
+    @SuppressLint("MissingPermission")
     public boolean createBond(@NonNull String address) {
         checkStatus();
         try {
@@ -676,6 +681,7 @@ public class BTManager {
      *
      * @param device 设备
      */
+    @SuppressLint("MissingPermission")
     public boolean createBond(@NonNull BluetoothDevice device) {
         checkStatus();
         try {

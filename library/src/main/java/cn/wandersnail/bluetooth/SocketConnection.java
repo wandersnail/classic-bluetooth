@@ -1,5 +1,6 @@
 package cn.wandersnail.bluetooth;
 
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.util.Log;
@@ -9,7 +10,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.util.Arrays;
-import java.util.UUID;
 
 import cn.wandersnail.commons.util.StringUtils;
 
@@ -28,6 +28,7 @@ class SocketConnection {
      */
     private final UUIDWrapper uuidWrapper;
 
+    @SuppressLint("MissingPermission")
     SocketConnection(ConnectionImpl connection, BTManager btManager, BluetoothDevice device, UUIDWrapper uuidWrapper, ConnectCallback callback) {
         this.device = device;
         this.connection = connection;
@@ -64,7 +65,7 @@ class SocketConnection {
             if (callback != null) {
                 callback.onSuccess();
             }
-            connection.callback(MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_CONNECTED));
+            connection.callback(MethodInfoGenerator.onConnectionStateChanged(device, uuidWrapper, Connection.STATE_CONNECTED));
             outStream = tmpOut;
             byte[] buffer = new byte[1024];
             int len;
@@ -73,7 +74,7 @@ class SocketConnection {
                     len = inputStream.read(buffer);
                     byte[] data = Arrays.copyOf(buffer, len);
                     BTLogger.instance.d(BTManager.DEBUG_TAG, "Receive data =>> " + StringUtils.toHex(data));
-                    connection.callback(MethodInfoGenerator.onRead(device, data));
+                    connection.callback(MethodInfoGenerator.onRead(device, uuidWrapper, data));
                 } catch (IOException e) {
                     if (!connection.isReleased()) {
                         connection.changeState(Connection.STATE_DISCONNECTED, false);
@@ -94,7 +95,7 @@ class SocketConnection {
         if (callback != null) {
             callback.onFail(errMsg, e);
         }
-        connection.callback(MethodInfoGenerator.onConnectionStateChanged(device, Connection.STATE_DISCONNECTED));
+        connection.callback(MethodInfoGenerator.onConnectionStateChanged(device, uuidWrapper, Connection.STATE_DISCONNECTED));
     }
 
     void write(WriteData data) {
@@ -103,7 +104,7 @@ class SocketConnection {
                 outStream.write(data.value);
                 BTLogger.instance.d(BTManager.DEBUG_TAG, "Write success. tag = " + data.tag);
                 if (data.callback == null) {
-                    connection.callback(MethodInfoGenerator.onWrite(device, data.tag, data.value, true));
+                    connection.callback(MethodInfoGenerator.onWrite(device, uuidWrapper, data.tag, data.value, true));
                 } else {
                     data.callback.onWrite(device, data.tag, data.value, true);
                 }
@@ -120,7 +121,7 @@ class SocketConnection {
             Log.w(BTManager.DEBUG_TAG, msg);
         }
         if (data.callback == null) {
-            connection.callback(MethodInfoGenerator.onWrite(device, data.tag, data.value, false));
+            connection.callback(MethodInfoGenerator.onWrite(device, uuidWrapper, data.tag, data.value, false));
         } else {
             data.callback.onWrite(device, data.tag, data.value, false);
         }

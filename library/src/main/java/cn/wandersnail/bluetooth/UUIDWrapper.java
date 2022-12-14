@@ -1,7 +1,6 @@
 package cn.wandersnail.bluetooth;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import java.util.UUID;
 
@@ -45,5 +44,4 @@ public class UUIDWrapper {
         wrapper.uuid = uuid;
         return wrapper;
     }
-
 }

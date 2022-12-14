@@ -2,20 +2,16 @@ package cn.wandersnail.btsppexample
 
 import android.bluetooth.BluetoothDevice
 import android.os.Bundle
-import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import cn.wandersnail.bluetooth.*
-import cn.wandersnail.commons.helper.WifiHelper
 import cn.wandersnail.commons.poster.RunOn
 import cn.wandersnail.commons.poster.ThreadMode
 import cn.wandersnail.commons.util.ToastUtils
 import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
 
-class MainActivityKt : AppCompatActivity, EventObserver {
+class MainActivityKt : AppCompatActivity(), EventObserver {
     private var connection: Connection? = null
-
-    constructor()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,16 +52,16 @@ class MainActivityKt : AppCompatActivity, EventObserver {
     }
 
     @RunOn(ThreadMode.MAIN)
-    override fun onRead(device: BluetoothDevice, value: ByteArray) {
+    override fun onRead(device: BluetoothDevice, warpper: UUIDWrapper, value: ByteArray) {
         tvLog.append("${String(value)}\n")
     }
 
-    override fun onWrite(device: BluetoothDevice, tag: String, value: ByteArray, result: Boolean) {
+    override fun onWrite(device: BluetoothDevice, warpper: UUIDWrapper, tag: String, value: ByteArray, result: Boolean) {
 
     }
 
     @RunOn(ThreadMode.MAIN)
-    override fun onConnectionStateChanged(device: BluetoothDevice, state: Int) {
+    override fun onConnectionStateChanged(device: BluetoothDevice, warpper: UUIDWrapper, state: Int) {
         val msg = when (state) {
             Connection.STATE_PAIRING -> "配对中..."
             Connection.STATE_PAIRED -> "配对成功"

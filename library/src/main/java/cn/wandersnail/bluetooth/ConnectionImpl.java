@@ -33,7 +33,7 @@ class ConnectionImpl extends Connection {
     private SocketConnection socketConnection;
     private final List<SocketConnection.WriteData> writeQueue = new ArrayList<>();//请求队列
     private volatile boolean writeRunning;
-    private UUIDWrapper uuidWrapper;
+    private final UUIDWrapper uuidWrapper;
 
     ConnectionImpl(BTManager btManager, BluetoothAdapter bluetoothAdapter, BluetoothDevice device, UUIDWrapper uuidWrapper, EventObserver observer) {
         this.btManager = btManager;
@@ -142,7 +142,7 @@ class ConnectionImpl extends Connection {
         this.state = state;
         BTLogger.instance.d(BTManager.DEBUG_TAG, "Connection state changed: " + getStateDesc(state));
         if (!noEvent) {
-            callback(MethodInfoGenerator.onConnectionStateChanged(device, state));
+            callback(MethodInfoGenerator.onConnectionStateChanged(device, uuidWrapper, state));
         }
     }
 
@@ -188,7 +188,7 @@ class ConnectionImpl extends Connection {
             if (callback != null) {
                 callback.onWrite(device, tag, value, false);
             } else {
-                this.callback(MethodInfoGenerator.onWrite(device, tag, value, false));
+                this.callback(MethodInfoGenerator.onWrite(device, uuidWrapper, tag, value, false));
             }
         } else {
             synchronized (this) {

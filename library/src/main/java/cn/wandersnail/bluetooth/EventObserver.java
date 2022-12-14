@@ -25,29 +25,32 @@ public interface EventObserver extends Observer {
     /**
      * 收到数据
      *
-     * @param device 设备
-     * @param value  收到的数据
+     * @param device  设备
+     * @param wrapper 包含通信的UUID
+     * @param value   收到的数据
      */
-    default void onRead(@NonNull BluetoothDevice device, @NonNull byte[] value) {
+    default void onRead(@NonNull BluetoothDevice device, @NonNull UUIDWrapper wrapper, @NonNull byte[] value) {
     }
 
     /**
      * 写入结果
      *
-     * @param device 设备
-     * @param tag    写入时设置的tag
-     * @param value  要写入的数据
-     * @param result 写入结果
+     * @param device  设备
+     * @param wrapper 包含通信的UUID
+     * @param tag     写入时设置的tag
+     * @param value   要写入的数据
+     * @param result  写入结果
      */
-    default void onWrite(@NonNull BluetoothDevice device, @NonNull String tag, @NonNull byte[] value, boolean result) {
+    default void onWrite(@NonNull BluetoothDevice device, @NonNull UUIDWrapper wrapper, @NonNull String tag, @NonNull byte[] value, boolean result) {
     }
 
     /**
      * 连接状态变化
      *
-     * @param device 设备
-     * @param state  设备。状态{@link Connection#STATE_CONNECTED}，可能的值{@link Connection#STATE_RELEASED}等
+     * @param device  设备
+     * @param wrapper 包含通信的UUID
+     * @param state   设备。状态{@link Connection#STATE_CONNECTED}，可能的值{@link Connection#STATE_RELEASED}等
      */
-    default void onConnectionStateChanged(@NonNull BluetoothDevice device, int state) {
+    default void onConnectionStateChanged(@NonNull BluetoothDevice device, @NonNull UUIDWrapper wrapper, int state) {
     }
 }
