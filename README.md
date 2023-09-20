@@ -1,7 +1,11 @@
 # Android传统（经典）蓝牙框架
 
-## 基于此库编写的调试助手——蓝牙调试宝，应用市场已上架，欢迎下载使用。
+## 基于此库编写的调试助手【蓝牙调试宝】APP，应用市场已上架，华为手机点击下方按钮下载，其他手机直接在应用市场搜索【蓝牙调试宝】下载。
 [![](https://img.shields.io/badge/下载-%E5%8D%8E%E4%B8%BA%E5%BA%94%E7%94%A8%E5%B8%82%E5%9C%BA-red)](https://appgallery1.huawei.com/#/app/C102224743)
+
+## 推荐一款工具箱【蜗牛工具箱】APP，涵盖广，功能丰富。生活实用、效率办公、图片处理等等，还有隐藏的VIP功能，总之很多惊喜的功能。华为手机点击下方按钮下载，其他手机直接在应用市场搜索【蜗牛工具箱】下载。
+[![](https://img.shields.io/badge/下载-%E5%8D%8E%E4%B8%BA%E5%BA%94%E7%94%A8%E5%B8%82%E5%9C%BA-red)](https://appgallery1.huawei.com/#/app/C109066561)
+
 
 ## 最新版本
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/cn.wandersnail/classic-bluetooth/badge.svg)](https://maven-badges.herokuapp.com/maven-central/cn.wandersnail/classic-bluetooth)
