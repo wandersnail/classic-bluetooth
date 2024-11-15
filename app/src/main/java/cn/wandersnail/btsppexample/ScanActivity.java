@@ -202,7 +202,7 @@ public class ScanActivity extends AppCompatActivity {
         devList.clear();
         listAdapter.notifyDataSetChanged();
         tvEmpty.setVisibility(View.VISIBLE);
-        BTManager.getInstance().startDiscovery();
+        BTManager.getInstance().startDiscovery(this);
     }
 
     private static class ListAdapter extends BaseListAdapter<Device> {

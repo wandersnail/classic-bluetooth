@@ -2,6 +2,7 @@ package cn.wandersnail.bluetooth;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.Application;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -35,6 +36,7 @@ import cn.wandersnail.commons.observer.Observe;
 import cn.wandersnail.commons.poster.MethodInfo;
 import cn.wandersnail.commons.poster.PosterDispatcher;
 import cn.wandersnail.commons.poster.ThreadMode;
+import cn.wandersnail.commons.util.Logger;
 
 /**
  * date: 2020/5/5 09:49
@@ -114,7 +116,7 @@ public class BTManager {
             Method appMethod = acThread.getClass().getMethod("getApplication");
             application = (Application) appMethod.invoke(acThread);
         } catch (Throwable e) {
-            e.printStackTrace();
+            Logger.e(DEBUG_TAG, "尝试获取Application失败", e);
         }
     }
 
@@ -340,11 +342,8 @@ public class BTManager {
         return false;
     }
 
-    /**
-     * 开始搜索
-     */
     @SuppressLint("MissingPermission")
-    public void startDiscovery() {
+    private void doStartDiscovery(Context context) {
         if (!checkStatus()) {
             return;
         }
@@ -352,33 +351,52 @@ public class BTManager {
             if (isDiscovering || !isBluetoothOn()) {
                 return;
             }
-            if (!isLocationEnabled(application)) {
+            if (!isLocationEnabled(context)) {
                 String errorMsg = "Unable to scan for Bluetooth devices, the phone's location service is not turned on.";
                 handleDiscoveryCallback(false, null, -120, DiscoveryListener.ERROR_LOCATION_SERVICE_CLOSED, errorMsg);
                 BTLogger.instance.e(DEBUG_TAG, errorMsg);
                 return;
             }
-            if (noLocationPermission(application)) {
+            if (noLocationPermission(context)) {
                 String errorMsg = "Unable to scan for Bluetooth devices, lack location permission.";
                 handleDiscoveryCallback(false, null, -120, DiscoveryListener.ERROR_LACK_LOCATION_PERMISSION, errorMsg);
                 BTLogger.instance.e(DEBUG_TAG, errorMsg);
                 return;
             }
-            if (noScanPermission(application)) {
+            if (noScanPermission(context)) {
                 String errorMsg = "Unable to scan for Bluetooth devices, lack scan permission.";
                 handleDiscoveryCallback(false, null, -120, DiscoveryListener.ERROR_LACK_SCAN_PERMISSION, errorMsg);
                 BTLogger.instance.e(DEBUG_TAG, errorMsg);
                 return;
             }
             //部分机型获取蓝牙名称需要连接权限，无语
-            if (noConnectPermission(application)) {
+            if (noConnectPermission(context)) {
                 String errorMsg = "Unable to scan for Bluetooth devices, lack connect permission.";
                 handleDiscoveryCallback(false, null, -120, DiscoveryListener.ERROR_LACK_CONNECT_PERMISSION, errorMsg);
                 BTLogger.instance.e(DEBUG_TAG, errorMsg);
                 return;
             }
         }
-        bluetoothAdapter.startDiscovery();//开始搜索
+        try {
+            bluetoothAdapter.startDiscovery();//开始搜索
+        } catch (Throwable e) {
+            Logger.e(DEBUG_TAG, "开始搜索异常", e);
+        }
+    }
+
+    /**
+     * 开始搜索。部分机型使用此方法无法正确判断出是否拥有相应的权限，请使用{@link #startDiscovery(Activity)}
+     */
+    @Deprecated
+    public void startDiscovery() {
+        doStartDiscovery(application);
+    }
+
+    /**
+     * 开始搜索
+     */
+    public void startDiscovery(@NonNull Activity activity) {
+        doStartDiscovery(activity);
     }
 
     /**
@@ -386,8 +404,12 @@ public class BTManager {
      */
     @SuppressLint("MissingPermission")
     public void stopDiscovery() {
-        if (checkStatus() && bluetoothAdapter != null && !noScanPermission(application)) {
-            bluetoothAdapter.cancelDiscovery();
+        if (checkStatus() && bluetoothAdapter != null && isDiscovering && !noScanPermission(application)) {
+            try {
+                bluetoothAdapter.cancelDiscovery();
+            } catch (Throwable e) {
+                Logger.e(DEBUG_TAG, "停止搜索异常", e);
+            }
         }
     }
 

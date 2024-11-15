@@ -6,7 +6,7 @@ buildscript {
         minSdkVersion = 21
         targetSdkVersion = 28
 
-        kotlin_version = '1.5.20'
+        kotlin_version = '1.7.10'
     }
     repositories {
         google()
@@ -14,7 +14,7 @@ buildscript {
         maven { url 'https://maven.aliyun.com/repository/jcenter' }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.0.3'
+        classpath 'com.android.tools.build:gradle:7.3.0'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -29,20 +29,22 @@ allprojects {
         maven { url 'https://jitpack.io' }
     }
     // 指定编码
-    tasks.withType(JavaCompile) {
+    tasks.withType(JavaCompile).configureEach {
         options.encoding = "UTF-8"
     }
 
-    tasks.withType(Javadoc).all {
-        enabled = false
-        options {
-            encoding "UTF-8"
-            charSet 'UTF-8'
+    tasks.withType(Javadoc).tap {
+        configureEach {
+            enabled = false
+            options {
+                encoding "UTF-8"
+                charSet 'UTF-8'
+            }
+            options.addStringOption('Xdoclint:none', '-quiet')
         }
-        options.addStringOption('Xdoclint:none', '-quiet')
     }
 }
 
-task clean(type: Delete) {
+tasks.register('clean', Delete) {
     delete rootProject.buildDir
 }
