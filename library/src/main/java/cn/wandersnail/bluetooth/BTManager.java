@@ -647,7 +647,11 @@ public class BTManager {
         }
         isInitialized = false;
         if (bluetoothAdapter != null) {
-            bluetoothAdapter.cancelDiscovery();
+            try {
+                bluetoothAdapter.cancelDiscovery();
+            } catch (Exception e) {
+                Logger.e(DEBUG_TAG, "停止搜索异常", e);
+            }
         }
         discoveryListeners.clear();
         releaseAllConnections();
