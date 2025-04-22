@@ -10,6 +10,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Queue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import cn.wandersnail.commons.util.StringUtils;
 
@@ -67,14 +69,26 @@ class SocketConnection {
             }
             connection.callback(MethodInfoGenerator.onConnectionStateChanged(device, uuidWrapper, Connection.STATE_CONNECTED));
             outStream = tmpOut;
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[10241];
+            byte[] tmpBytes = new byte[0];
             int len;
             while (true) {
                 try {
                     len = inputStream.read(buffer);
-                    byte[] data = Arrays.copyOf(buffer, len);
-                    BTLogger.instance.d(BTManager.DEBUG_TAG, "Receive data =>> " + StringUtils.toHex(data));
-                    connection.callback(MethodInfoGenerator.onRead(device, uuidWrapper, data));
+                    //将读到的数据追加放入tempBytes中
+                    if (tmpBytes.length > 0) {
+                        byte[] temp = new byte[tmpBytes.length + len];
+                        System.arraycopy(tmpBytes, 0, temp, 0, tmpBytes.length);
+                        System.arraycopy(buffer, 0, temp, tmpBytes.length, len);
+                        tmpBytes = temp;
+                    } else {
+                        tmpBytes = Arrays.copyOf(buffer, len);
+                    }
+                    if (len < buffer.length) {//读取到完整的数据才回调
+                        BTLogger.instance.d(BTManager.DEBUG_TAG, "Receive data =>> " + StringUtils.toHex(tmpBytes));
+                        connection.callback(MethodInfoGenerator.onRead(device, uuidWrapper, tmpBytes));
+                        tmpBytes = new byte[0];
+                    }
                 } catch (IOException e) {
                     if (!connection.isReleased()) {
                         connection.changeState(Connection.STATE_DISCONNECTED, false);
