@@ -44,7 +44,7 @@
 # Android传统（经典）蓝牙框架使用说明
 
 ## 最新版本
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/cn.wandersnail/classic-bluetooth/badge.svg)](https://maven-badges.herokuapp.com/maven-central/cn.wandersnail/classic-bluetooth)
+[![Maven Central](https://img.shields.io/maven-central/v/cn.wandersnail/classic-bluetooth.svg?color=4AC61C)](https://central.sonatype.com/artifact/cn.wandersnail/classic-bluetooth/versions)
 [![Release](https://jitpack.io/v/cn.wandersnail/classic-bluetooth.svg)](https://jitpack.io/#cn.wandersnail/classic-bluetooth)
 [![](https://img.shields.io/badge/源码-github-blue.svg)](https://github.com/wandersnail/classic-bluetooth)
 [![](https://img.shields.io/badge/源码-码云-red.svg)](https://gitee.com/fszeng/classic-bluetooth)
