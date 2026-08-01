@@ -73,7 +73,6 @@ public class ScanActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scan);
         initViews();
-        BTManager.isDebugMode = true;
         BTManager.getInstance().addDiscoveryListener(discoveryListener);        
         initialize();
     }
@@ -120,11 +119,14 @@ public class ScanActivity extends AppCompatActivity {
         @Override
         public void onDiscoveryError(int errorCode, @NonNull String errorMsg) {
             switch(errorCode) {
-                case DiscoveryListener.ERROR_LACK_LOCATION_PERMISSION://缺少定位权限		
+                case DiscoveryListener.ERROR_LACK_LOCATION_PERMISSION://缺少定位权限
+                    ToastUtils.showShort("缺少定位权限");
                     break;
-                case DiscoveryListener.ERROR_LOCATION_SERVICE_CLOSED://位置服务未开启		
+                case DiscoveryListener.ERROR_LOCATION_SERVICE_CLOSED://位置服务未开启
+                    ToastUtils.showShort("位置服务未开启");
                     break;
-                case DiscoveryListener.ERROR_LACK_SCAN_PERMISSION://缺少搜索权限		
+                case DiscoveryListener.ERROR_LACK_SCAN_PERMISSION://缺少搜索权限
+                    ToastUtils.showShort("缺少搜索权限");
                     break;
                 case DiscoveryListener.ERROR_SCAN_FAILED://搜索失败
                     ToastUtils.showShort("搜索出错：" + errorCode);
@@ -146,11 +148,10 @@ public class ScanActivity extends AppCompatActivity {
     //需要进行检测的权限
     private List<String> getNeedPermissions() {
         List<String> list = new ArrayList<>();
-        if (getApplicationInfo().targetSdkVersion >= 29) {//target sdk版本在29以上的需要精确定位权限才能搜索到蓝牙设备
-            list.add(Manifest.permission.ACCESS_FINE_LOCATION);
-        } else {
+        if (getApplicationInfo().targetSdkVersion < 29) {//target sdk版本在29以上的需要精确定位权限才能搜索到蓝牙设备
             list.add(Manifest.permission.ACCESS_COARSE_LOCATION);
         }
+        list.add(Manifest.permission.ACCESS_FINE_LOCATION);
         //Android 12需要
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             list.add(Manifest.permission.BLUETOOTH_SCAN);

@@ -2,47 +2,18 @@
 
 buildscript {
     ext {
-        compileSdkVersion = 31
+        compileSdkVersion = 34
         minSdkVersion = 21
-        targetSdkVersion = 28
+        targetSdkVersion = 30
 
-        kotlin_version = '1.7.10'
-    }
-    repositories {
-        google()
-        mavenCentral()
-        maven { url 'https://maven.aliyun.com/repository/jcenter' }
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:7.3.0'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
+        androidx_core = '1.10.1'
+        androidx_appcompat = '1.6.1'
     }
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url 'https://maven.aliyun.com/repository/jcenter' }
-        maven { url 'https://jitpack.io' }
-    }
-    // 指定编码
-    tasks.withType(JavaCompile).configureEach {
-        options.encoding = "UTF-8"
-    }
-
-    tasks.withType(Javadoc).tap {
-        configureEach {
-            enabled = false
-            options {
-                encoding "UTF-8"
-                charSet 'UTF-8'
-            }
-            options.addStringOption('Xdoclint:none', '-quiet')
-        }
-    }
+plugins {
+    id 'com.android.application' version '8.9.1' apply false
+    id 'org.jetbrains.kotlin.android' version '2.2.0' apply false
 }
 
 tasks.register('clean', Delete) {

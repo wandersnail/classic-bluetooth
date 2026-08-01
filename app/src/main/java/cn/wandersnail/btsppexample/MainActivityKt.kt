@@ -4,18 +4,20 @@ import android.bluetooth.BluetoothDevice
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import cn.wandersnail.bluetooth.*
+import cn.wandersnail.btsppexample.databinding.ActivityMainBinding
 import cn.wandersnail.commons.poster.RunOn
 import cn.wandersnail.commons.poster.ThreadMode
 import cn.wandersnail.commons.util.ToastUtils
-import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
 
 class MainActivityKt : AppCompatActivity(), EventObserver {
     private var connection: Connection? = null
+    private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
         val device: BluetoothDevice? = intent.getParcelableExtra("device")
         if (device == null) {
             finish()
@@ -37,13 +39,13 @@ class MainActivityKt : AppCompatActivity(), EventObserver {
             }
 
             override fun onFail(errMsg: String, e: Throwable?) {
-                runOnUiThread { tvLog.append("连接失败\n") }
+                runOnUiThread { binding.tvLog.append("连接失败\n") }
             }
         })
-        btnSend.setOnClickListener {
+        binding.btnSend.setOnClickListener {
             if (connection?.isConnected == true) {
-                if (etMsg.text?.isNotEmpty() == true) {
-                    connection?.write(null, etMsg.text!!.toString().toByteArray(), null)
+                if (binding.etMsg.text?.isNotEmpty() == true) {
+                    connection?.write(null, binding.etMsg.text!!.toString().toByteArray(), null)
                 }
             } else {
                 ToastUtils.showShort("未连接")
@@ -53,7 +55,7 @@ class MainActivityKt : AppCompatActivity(), EventObserver {
 
     @RunOn(ThreadMode.MAIN)
     override fun onRead(device: BluetoothDevice, warpper: UUIDWrapper, value: ByteArray) {
-        tvLog.append("${String(value)}\n")
+        binding.tvLog.append("${String(value)}\n")
     }
 
     override fun onWrite(device: BluetoothDevice, warpper: UUIDWrapper, tag: String, value: ByteArray, result: Boolean) {
@@ -71,7 +73,7 @@ class MainActivityKt : AppCompatActivity(), EventObserver {
             else -> ""
         }
         if (msg.isNotEmpty()) {
-            tvLog.append("$msg\n")
+            binding.tvLog.append("$msg\n")
         }
     }
 
