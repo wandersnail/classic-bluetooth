@@ -5,7 +5,7 @@ plugins {
     id 'tech.yanand.maven-central-publish' version '1.3.0'
 }
 
-def lib_version = '1.1.4'
+def lib_version = '1.1.5'
 def user_name = 'wandersnail'
 def lib_group = 'cn.wandersnail'
 def lib_artifact = 'classic-bluetooth'
@@ -16,6 +16,12 @@ version = lib_version
 
 signing {
     sign configurations.archives
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
 }
 
 android {
@@ -40,31 +46,16 @@ android {
         abortOnError false
         disable 'TypographyFractions', 'TypographyQuotes'
     }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_21
-        targetCompatibility JavaVersion.VERSION_21
-    }
 }
 
 dependencies {
     compileOnly "androidx.appcompat:appcompat:$androidx_appcompat"
-    compileOnly 'cn.wandersnail:commons-android:1.5.1'
+    compileOnly 'cn.wandersnail:commons-android:1.5.0'
 }
 
 tasks.register('sourcesJar', Jar) {
     archiveClassifier.set('sources')
     from android.sourceSets.main.java.srcDirs
-}
-
-tasks.register('javadoc', Javadoc) {
-    source = android.sourceSets.main.java.srcDirs
-    setClasspath(classpath + project.files(android.getBootClasspath().join(File.pathSeparator)))
-}
-
-tasks.register('javadocJar', Jar) {
-    dependsOn javadoc
-    archiveClassifier.set('javadoc')
-    from javadoc.destinationDir
 }
 
 publishing {
@@ -75,9 +66,8 @@ publishing {
             version = lib_version
             description = lib_description
 
-            // 增加 sourcesJar、javadocJar 任务
+            // 增加 sourcesJar 任务
             artifact sourcesJar
-            artifact javadocJar
             // 依赖 bundleReleaseAar 这是构建生产渠道的aar包任务，并上传其产出的aar ,推荐
             afterEvaluate { artifact(tasks.getByName("bundleReleaseAar")) }
 
@@ -133,10 +123,4 @@ mavenCentral {
     // 或者当发布类型为 'USER_MANAGED' 时，获取 'VALIDATED' 状态。
     // 该属性是可选的，默认为60秒。
     maxWait = 60
-}
-
-javadoc {
-    if(JavaVersion.current().isJava9Compatible()) {
-        options.addBooleanOption('html5', true)
-    }
 }

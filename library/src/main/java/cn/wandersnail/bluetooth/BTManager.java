@@ -347,6 +347,9 @@ public class BTManager {
         if (!checkStatus()) {
             return;
         }
+        if (context == null) {
+            context = application;
+        }
         synchronized (this) {
             if (isDiscovering || !isBluetoothOn()) {
                 return;
@@ -465,10 +468,14 @@ public class BTManager {
         if (checkStatus()) {
             Objects.requireNonNull(address, "address can't be null");
             Objects.requireNonNull(uuidWrapper, "uuidWrapper can't be null");
-            BluetoothDevice remoteDevice = bluetoothAdapter.getRemoteDevice(address);
-            if (remoteDevice != null) {
-                return createConnection(remoteDevice, uuidWrapper, observer);
+            BluetoothDevice remoteDevice;
+            try {
+                remoteDevice = bluetoothAdapter.getRemoteDevice(address);
+            } catch (IllegalArgumentException e) {
+                BTLogger.instance.e(DEBUG_TAG, "Invalid bluetooth address: " + address);
+                return null;
             }
+            return createConnection(remoteDevice, uuidWrapper, observer);
         }
         return null;
     }
@@ -615,8 +622,9 @@ public class BTManager {
      */
     public void releaseConnection(String address, @NonNull UUIDWrapper uuidWrapper) {
         if (checkStatus() && address != null) {
-            addressList.remove(address);
-            Connection connection = connectionMap.remove(_getConnectionMapKey(address, uuidWrapper));
+            String key = _getConnectionMapKey(address, uuidWrapper);
+            addressList.remove(key);
+            Connection connection = connectionMap.remove(key);
             if (connection != null) {
                 connection.release();
             }
@@ -628,12 +636,20 @@ public class BTManager {
      */
     public void releaseConnection(BluetoothDevice device, @NonNull UUIDWrapper uuidWrapper) {
         if (checkStatus() && device != null) {
-            addressList.remove(device.getAddress());
-            Connection connection = connectionMap.remove(_getConnectionMapKey(device.getAddress(), uuidWrapper));
+            String key = _getConnectionMapKey(device.getAddress(), uuidWrapper);
+            addressList.remove(key);
+            Connection connection = connectionMap.remove(key);
             if (connection != null) {
                 connection.release();
             }
         }
+    }
+
+    //连接被释放后从集合中移除。不做初始化检查，避免在release过程中触发自动重新初始化
+    void onConnectionReleased(BluetoothDevice device, UUIDWrapper uuidWrapper) {
+        String key = _getConnectionMapKey(device.getAddress(), uuidWrapper);
+        addressList.remove(key);
+        connectionMap.remove(key);
     }
 
     /**
@@ -641,11 +657,14 @@ public class BTManager {
      */
     @SuppressLint("MissingPermission")
     public synchronized void release() {
-        if (broadcastReceiver != null) {
-            application.unregisterReceiver(broadcastReceiver);
+        isInitialized = false;
+        if (application != null && broadcastReceiver != null) {
+            try {
+                application.unregisterReceiver(broadcastReceiver);
+            } catch (Throwable ignore) {
+            }
             broadcastReceiver = null;
         }
-        isInitialized = false;
         if (bluetoothAdapter != null) {
             try {
                 bluetoothAdapter.cancelDiscovery();
@@ -654,7 +673,12 @@ public class BTManager {
             }
         }
         discoveryListeners.clear();
-        releaseAllConnections();
+        //逐个释放连接。不能调用releaseAllConnections()，其内部的checkStatus会在release过程中触发自动重新初始化
+        for (Connection connection : connectionMap.values()) {
+            connection.release();
+        }
+        connectionMap.clear();
+        addressList.clear();
         if (internalObservable) {
             observable.unregisterAll();
             posterDispatcher.clearTasks();

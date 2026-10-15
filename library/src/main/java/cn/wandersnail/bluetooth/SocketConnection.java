@@ -75,6 +75,12 @@ class SocketConnection {
             while (true) {
                 try {
                     len = inputStream.read(buffer);
+                    if (len == -1) {//对端已正常关闭连接
+                        if (!connection.isReleased()) {
+                            connection.changeState(Connection.STATE_DISCONNECTED, false);
+                        }
+                        break;
+                    }
                     //将读到的数据追加放入tempBytes中
                     if (tmpBytes.length > 0) {
                         byte[] temp = new byte[tmpBytes.length + len];
@@ -142,10 +148,11 @@ class SocketConnection {
     }
 
     void close() {
-        if (socket != null) {
+        BluetoothSocket s = socket;
+        socket = null;
+        if (s != null) {
             try {
-                socket.close();
-                socket = null;
+                s.close();
             } catch (Throwable e) {
                 BTLogger.instance.e(BTManager.DEBUG_TAG, "Could not close the client socket: " + e.getMessage());
             }

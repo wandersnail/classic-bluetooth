@@ -79,7 +79,9 @@ class ConnectionImpl extends Connection {
             }
         } else {
             if (!hasConnectPermission(btManager.getContext())) {
-                callback.onFail("Lack connect permission.", null);
+                if (callback != null) {
+                    callback.onFail("Lack connect permission.", null);
+                }
                 return;
             }
             socketConnection = new SocketConnection(this, btManager, device, uuidWrapper, callback);
@@ -120,7 +122,7 @@ class ConnectionImpl extends Connection {
             disconnect();
             isReleased = true;
             changeState(Connection.STATE_RELEASED, noEvent);
-            btManager.releaseConnection(device, uuidWrapper);//从集合中删除
+            btManager.onConnectionReleased(device, uuidWrapper);//从集合中删除
         }
     }
 
@@ -213,7 +215,8 @@ class ConnectionImpl extends Connection {
             try {
                 while (true) {
                     SocketConnection.WriteData data;
-                    synchronized (this) {
+                    //必须与write()使用同一个锁对象，否则会出现写数据卡在队列中的竞态
+                    synchronized (ConnectionImpl.this) {
                         if (writeQueue.isEmpty()) {
                             writeRunning = false;
                             return;
@@ -227,7 +230,9 @@ class ConnectionImpl extends Connection {
                     }
                 }
             } finally {
-                writeRunning = false;
+                synchronized (ConnectionImpl.this) {
+                    writeRunning = false;
+                }
             }
         }
     };
