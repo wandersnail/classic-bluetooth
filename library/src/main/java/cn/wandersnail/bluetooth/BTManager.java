@@ -6,6 +6,7 @@ import android.app.Activity;
 import android.app.Application;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -13,10 +14,13 @@ import android.content.IntentFilter;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -36,7 +40,6 @@ import cn.wandersnail.commons.observer.Observe;
 import cn.wandersnail.commons.poster.MethodInfo;
 import cn.wandersnail.commons.poster.PosterDispatcher;
 import cn.wandersnail.commons.poster.ThreadMode;
-import cn.wandersnail.commons.util.Logger;
 
 /**
  * date: 2020/5/5 09:49
@@ -52,7 +55,8 @@ public class BTManager {
     private Application application;
     private boolean isInitialized;
     private BluetoothAdapter bluetoothAdapter;
-    private BroadcastReceiver broadcastReceiver;
+    private BroadcastReceiver stateBroadcastReceiver;
+    private BroadcastReceiver discoveryBroadcastReceiver;
     private final Map<String, Connection> connectionMap = new ConcurrentHashMap<>();
     //已连接的设备MAC地址集合
     private final List<String> addressList = new CopyOnWriteArrayList<>();
@@ -60,6 +64,7 @@ public class BTManager {
     private boolean isDiscovering;
     private final List<DiscoveryListener> discoveryListeners = new CopyOnWriteArrayList<>();
     public static boolean isDebugMode;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private BTManager() {
         this(DEFAULT_BUILDER);
@@ -116,7 +121,7 @@ public class BTManager {
             Method appMethod = acThread.getClass().getMethod("getApplication");
             application = (Application) appMethod.invoke(acThread);
         } catch (Throwable e) {
-            Logger.e(DEBUG_TAG, "尝试获取Application失败", e);
+            BTLogger.instance.e(DEBUG_TAG, "尝试获取Application失败", e);
         }
     }
 
@@ -148,31 +153,31 @@ public class BTManager {
         return bluetoothAdapter != null && bluetoothAdapter.isEnabled();
     }
 
-    private class InnerBroadcastReceiver extends BroadcastReceiver {
+    private BluetoothDevice getDeviceFromIntent(Intent intent) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice.class);
+        } else {
+            return intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+        } 
+    }
+    
+    private class DiscoveryBroadcastReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (action != null) {
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 switch (action) {
-                    case BluetoothAdapter.ACTION_STATE_CHANGED:
-                        if (bluetoothAdapter != null) {
-                            //通知观察者蓝牙状态
-                            observable.notifyObservers(MethodInfoGenerator.onBluetoothAdapterStateChanged(bluetoothAdapter.getState()));
-                            if (bluetoothAdapter.getState() == BluetoothAdapter.STATE_OFF) {
-                                isDiscovering = false;
-                            }
-                        }
-                        break;
                     case BluetoothAdapter.ACTION_DISCOVERY_STARTED:
                         isDiscovering = true;
                         handleDiscoveryCallback(true, null, -120, -1, "");
                         break;
                     case BluetoothAdapter.ACTION_DISCOVERY_FINISHED:
                         isDiscovering = false;
+                        unregisterDiscoveryReceiver();
                         handleDiscoveryCallback(false, null, -120, -1, "");
                         break;
                     case BluetoothDevice.ACTION_FOUND:
+                        BluetoothDevice device = getDeviceFromIntent(intent);                        
                         if (device != null) {
                             int rssi = -120;
                             Bundle extras = intent.getExtras();
@@ -182,7 +187,30 @@ public class BTManager {
                             handleDiscoveryCallback(false, device, rssi, 0, "");
                         }
                         break;
+                }
+            }
+        }
+    }
+    
+    private class StateBroadcastReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (action != null) {
+                switch (action) {
+                    case BluetoothAdapter.ACTION_STATE_CHANGED:
+                        BTLogger.instance.d(DEBUG_TAG, "Bluetooth state changed: " + bluetoothAdapter.getState());
+                        if (bluetoothAdapter != null) {
+                            //通知观察者蓝牙状态
+                            observable.notifyObservers(MethodInfoGenerator.onBluetoothAdapterStateChanged(bluetoothAdapter.getState()));
+                            if (bluetoothAdapter.getState() == BluetoothAdapter.STATE_OFF) {
+                                isDiscovering = false;
+                            }
+                        }
+                        break;
                     case BluetoothDevice.ACTION_BOND_STATE_CHANGED:
+                        BTLogger.instance.d(DEBUG_TAG, "Bluetooth device bond state changed: " + intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, -1));
+                        BluetoothDevice device = getDeviceFromIntent(intent);
                         if (device != null) {
                             int bondState = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, -1);
                             if (bondState == BluetoothDevice.BOND_BONDED ||
@@ -213,19 +241,47 @@ public class BTManager {
         Objects.requireNonNull(application, "application can't be null");
         this.application = application;
         //获取蓝牙配置器
-        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        BluetoothManager bluetoothManager = (BluetoothManager) application.getSystemService(Context.BLUETOOTH_SERVICE);
+        bluetoothAdapter = bluetoothManager.getAdapter();
         //注册蓝牙开关状态广播接收者
-        if (broadcastReceiver == null) {
-            broadcastReceiver = new InnerBroadcastReceiver();
+        if (stateBroadcastReceiver == null) {
+            stateBroadcastReceiver = new StateBroadcastReceiver();
             IntentFilter filter = new IntentFilter();
             filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
-            filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
-            filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-            filter.addAction(BluetoothDevice.ACTION_FOUND);
             filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
-            application.registerReceiver(broadcastReceiver, filter);
+            application.registerReceiver(stateBroadcastReceiver, filter);
         }
         isInitialized = true;
+    }
+    
+    private IntentFilter getDiscoveryFilter() {
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(BluetoothDevice.ACTION_FOUND);
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        return filter;
+    }
+
+    private synchronized void registerDiscoveryReceiver() {
+        if (discoveryBroadcastReceiver == null) {
+            discoveryBroadcastReceiver = new DiscoveryBroadcastReceiver();
+        }
+        try {
+            ContextCompat.registerReceiver(application, discoveryBroadcastReceiver, getDiscoveryFilter(), ContextCompat.RECEIVER_EXPORTED);
+        } catch (Exception e) {
+            BTLogger.instance.e(DEBUG_TAG, "注册广播接收者失败", e);
+        }
+    }
+    
+    private synchronized void unregisterDiscoveryReceiver() {
+        if (discoveryBroadcastReceiver != null) {
+            try {
+                application.unregisterReceiver(discoveryBroadcastReceiver);
+            } catch (Exception e) {
+                BTLogger.instance.e(DEBUG_TAG, "注销广播接收者失败", e);
+            }
+            discoveryBroadcastReceiver = null;
+        }
     }
 
     private synchronized boolean checkStatus() {
@@ -380,11 +436,23 @@ public class BTManager {
                 return;
             }
         }
-        try {
-            bluetoothAdapter.startDiscovery();//开始搜索
-        } catch (Throwable e) {
-            Logger.e(DEBUG_TAG, "开始搜索异常", e);
+        boolean wasDiscovering = bluetoothAdapter.isDiscovering();
+        if (wasDiscovering) {
+            bluetoothAdapter.cancelDiscovery();
         }
+        registerDiscoveryReceiver();
+        mainHandler.postDelayed(() -> {
+            try {
+                boolean started = bluetoothAdapter.startDiscovery();//开始搜索
+                if (!started) {
+                    BTLogger.instance.e(DEBUG_TAG, "开始搜索失败");
+                    unregisterDiscoveryReceiver();
+                }
+            } catch (Throwable e) {
+                BTLogger.instance.e(DEBUG_TAG, "开始搜索异常", e);
+                unregisterDiscoveryReceiver();
+            }
+        }, wasDiscovering ? 500 : 0);
     }
 
     /**
@@ -411,7 +479,7 @@ public class BTManager {
             try {
                 bluetoothAdapter.cancelDiscovery();
             } catch (Throwable e) {
-                Logger.e(DEBUG_TAG, "停止搜索异常", e);
+                BTLogger.instance.e(DEBUG_TAG, "停止搜索异常", e);
             }
         }
     }
@@ -658,18 +726,21 @@ public class BTManager {
     @SuppressLint("MissingPermission")
     public synchronized void release() {
         isInitialized = false;
-        if (application != null && broadcastReceiver != null) {
-            try {
-                application.unregisterReceiver(broadcastReceiver);
-            } catch (Throwable ignore) {
+        if (application != null) {
+            if (stateBroadcastReceiver != null) {
+                try {
+                    application.unregisterReceiver(stateBroadcastReceiver);
+                } catch (Throwable ignore) {
+                }
             }
-            broadcastReceiver = null;
+            stateBroadcastReceiver = null;
+            unregisterDiscoveryReceiver();
         }
         if (bluetoothAdapter != null) {
             try {
                 bluetoothAdapter.cancelDiscovery();
             } catch (Exception e) {
-                Logger.e(DEBUG_TAG, "停止搜索异常", e);
+                BTLogger.instance.e(DEBUG_TAG, "停止搜索异常", e);
             }
         }
         discoveryListeners.clear();

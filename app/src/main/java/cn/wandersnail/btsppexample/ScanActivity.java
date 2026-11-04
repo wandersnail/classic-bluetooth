@@ -91,7 +91,6 @@ public class ScanActivity extends AppCompatActivity {
         });
         refreshLayout.setOnRefreshListener(() -> {
             if (BTManager.getInstance().isInitialized()) {
-                BTManager.getInstance().stopDiscovery();
                 doStartDiscovery();
             }
             refreshLayout.postDelayed(() -> refreshLayout.setRefreshing(false), 500);
