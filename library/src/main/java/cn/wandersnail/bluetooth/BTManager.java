@@ -16,6 +16,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.Settings;
 
 import androidx.annotation.NonNull;
@@ -62,6 +63,13 @@ public class BTManager {
     private final List<String> addressList = new CopyOnWriteArrayList<>();
     private final boolean internalObservable;
     private boolean isDiscovering;
+    /**
+     * 发现广播接收者是否已注册。
+     *
+     * 为什么要单独记这个标记：接收者改为“初始化时注册、只有 release 时才注销”，
+     * 避免每轮 FINISHED 后注销、下次 start 前再注册，中间出现广播空窗（空窗内 STARTED/FINISHED 会直接丢失）。
+     */
+    private boolean discoveryReceiverRegistered;
     private final List<DiscoveryListener> discoveryListeners = new CopyOnWriteArrayList<>();
     public static boolean isDebugMode;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -161,6 +169,9 @@ public class BTManager {
         } 
     }
     
+    /** 发现调度状态机，库内部实现；对外只通过 start/stop + DiscoveryListener 暴露，见类注释 */
+    private final DiscoveryController discoveryController = new DiscoveryController();
+
     private class DiscoveryBroadcastReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -168,13 +179,10 @@ public class BTManager {
             if (action != null) {
                 switch (action) {
                     case BluetoothAdapter.ACTION_DISCOVERY_STARTED:
-                        isDiscovering = true;
-                        handleDiscoveryCallback(true, null, -120, -1, "");
+                        discoveryController.onStarted();
                         break;
                     case BluetoothAdapter.ACTION_DISCOVERY_FINISHED:
-                        isDiscovering = false;
-                        unregisterDiscoveryReceiver();
-                        handleDiscoveryCallback(false, null, -120, -1, "");
+                        discoveryController.onFinished();
                         break;
                     case BluetoothDevice.ACTION_FOUND:
                         BluetoothDevice device = getDeviceFromIntent(intent);                        
@@ -204,7 +212,8 @@ public class BTManager {
                             //通知观察者蓝牙状态
                             observable.notifyObservers(MethodInfoGenerator.onBluetoothAdapterStateChanged(bluetoothAdapter.getState()));
                             if (bluetoothAdapter.getState() == BluetoothAdapter.STATE_OFF) {
-                                isDiscovering = false;
+                                // 蓝牙关闭时让状态机复位，否则会一直停在 ACTIVE 挡住后续搜索
+                                discoveryController.onBluetoothOff();
                             }
                         }
                         break;
@@ -251,6 +260,8 @@ public class BTManager {
             filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
             application.registerReceiver(stateBroadcastReceiver, filter);
         }
+        // 发现广播接收者在这里一次性注册并常驻，避免每轮搜索前后“注销-再注册”造成广播空窗
+        registerDiscoveryReceiver();
         isInitialized = true;
     }
     
@@ -263,24 +274,29 @@ public class BTManager {
     }
 
     private synchronized void registerDiscoveryReceiver() {
+        // 常驻注册：已经注册过就直接复用，重复注册会导致同一事件回调多次
+        if (discoveryReceiverRegistered) {
+            return;
+        }
         if (discoveryBroadcastReceiver == null) {
             discoveryBroadcastReceiver = new DiscoveryBroadcastReceiver();
         }
         try {
             ContextCompat.registerReceiver(application, discoveryBroadcastReceiver, getDiscoveryFilter(), ContextCompat.RECEIVER_EXPORTED);
+            discoveryReceiverRegistered = true;
         } catch (Exception e) {
             BTLogger.instance.e(DEBUG_TAG, "注册广播接收者失败", e);
         }
     }
     
     private synchronized void unregisterDiscoveryReceiver() {
-        if (discoveryBroadcastReceiver != null) {
+        if (discoveryBroadcastReceiver != null && discoveryReceiverRegistered) {
             try {
                 application.unregisterReceiver(discoveryBroadcastReceiver);
             } catch (Exception e) {
                 BTLogger.instance.e(DEBUG_TAG, "注销广播接收者失败", e);
             }
-            discoveryBroadcastReceiver = null;
+            discoveryReceiverRegistered = false;
         }
     }
 
@@ -398,89 +414,403 @@ public class BTManager {
         return false;
     }
 
-    @SuppressLint("MissingPermission")
-    private void doStartDiscovery(Context context) {
-        if (!checkStatus()) {
-            return;
-        }
-        if (context == null) {
-            context = application;
-        }
-        synchronized (this) {
-            if (isDiscovering || !isBluetoothOn()) {
-                return;
-            }
-            if (!isLocationEnabled(context)) {
-                String errorMsg = "Unable to scan for Bluetooth devices, the phone's location service is not turned on.";
-                handleDiscoveryCallback(false, null, -120, DiscoveryListener.ERROR_LOCATION_SERVICE_CLOSED, errorMsg);
-                BTLogger.instance.e(DEBUG_TAG, errorMsg);
-                return;
-            }
-            if (noLocationPermission(context)) {
-                String errorMsg = "Unable to scan for Bluetooth devices, lack location permission.";
-                handleDiscoveryCallback(false, null, -120, DiscoveryListener.ERROR_LACK_LOCATION_PERMISSION, errorMsg);
-                BTLogger.instance.e(DEBUG_TAG, errorMsg);
-                return;
-            }
-            if (noScanPermission(context)) {
-                String errorMsg = "Unable to scan for Bluetooth devices, lack scan permission.";
-                handleDiscoveryCallback(false, null, -120, DiscoveryListener.ERROR_LACK_SCAN_PERMISSION, errorMsg);
-                BTLogger.instance.e(DEBUG_TAG, errorMsg);
-                return;
-            }
-            //部分机型获取蓝牙名称需要连接权限，无语
-            if (noConnectPermission(context)) {
-                String errorMsg = "Unable to scan for Bluetooth devices, lack connect permission.";
-                handleDiscoveryCallback(false, null, -120, DiscoveryListener.ERROR_LACK_CONNECT_PERMISSION, errorMsg);
-                BTLogger.instance.e(DEBUG_TAG, errorMsg);
-                return;
-            }
-        }
-        boolean wasDiscovering = bluetoothAdapter.isDiscovering();
-        if (wasDiscovering) {
-            bluetoothAdapter.cancelDiscovery();
-        }
-        registerDiscoveryReceiver();
-        mainHandler.postDelayed(() -> {
-            try {
-                boolean started = bluetoothAdapter.startDiscovery();//开始搜索
-                if (!started) {
-                    BTLogger.instance.e(DEBUG_TAG, "开始搜索失败");
-                    unregisterDiscoveryReceiver();
-                }
-            } catch (Throwable e) {
-                BTLogger.instance.e(DEBUG_TAG, "开始搜索异常", e);
-                unregisterDiscoveryReceiver();
-            }
-        }, wasDiscovering ? 500 : 0);
-    }
-
     /**
      * 开始搜索。部分机型使用此方法无法正确判断出是否拥有相应的权限，请使用{@link #startDiscovery(Activity)}
      */
     @Deprecated
     public void startDiscovery() {
-        doStartDiscovery(application);
+        // 没有 Activity 时由状态机回退到 Application 做权限判断
+        discoveryController.start(null);
     }
 
     /**
-     * 开始搜索
+     * 开始搜索。
+     *
+     * <p>语义说明：本方法不再直接调用系统 API 后立即返回，而是交给库内部的发现调度状态机。
+     * 内部会：合并重复请求（不会叠加多次 start）、在开始前用 {@code bluetoothAdapter.isDiscovering()} 实时判断
+     * 并先 cancel（最多 3 次 / 2s，超限强制 start）、start 返回 true 但 1.5s 内没有
+     * {@code ACTION_DISCOVERY_STARTED} 时判定与栈脱同步并按 1.5s→3s→8s→16s 退避重试、
+     * 会话 15s 无 FINISHED 时主动 cancel 复位、两轮搜索之间至少间隔 3s。</p>
+     *
+     * <p>因此 {@link DiscoveryListener#onDiscoveryStart()} 只会在真正收到 STARTED 后回调；
+     * 若多次重试仍无法开始，会回调一次 {@link DiscoveryListener#onDiscoveryError(int, String)}
+     * （errorCode 为 {@link DiscoveryListener#ERROR_SCAN_FAILED}）。</p>
      */
     public void startDiscovery(@NonNull Activity activity) {
-        doStartDiscovery(activity);
+        discoveryController.start(activity);
     }
 
     /**
-     * 停止搜索
+     * 停止搜索。
+     *
+     * <p>语义说明：无论内部缓存如何，这里都会向系统发起一次 {@code cancelDiscovery()}，
+     * 用于清掉 AdapterService 侧可能残留的 discovering 标记；随后回调一次
+     * {@link DiscoveryListener#onDiscoveryStop()}（仅当本轮搜索真正开始过）。</p>
      */
-    @SuppressLint("MissingPermission")
     public void stopDiscovery() {
-        if (checkStatus() && bluetoothAdapter != null && isDiscovering && !noScanPermission(application)) {
+        discoveryController.stop();
+    }
+
+    /**
+     * 发现调度状态机（库内部实现，不对外暴露）。
+     *
+     * <p>为什么需要它：{@code BluetoothAdapter.startDiscovery()} 返回 true 只代表请求被系统服务受理，
+     * 并不代表底层 BTA 真的开始了搜索。部分 ROM 在上一轮搜索结束后仍停留在 DISCOVER_ACTIVE（例如为设备补读名字），
+     * 此时新的 start 请求会被直接丢弃，表现为“第二次搜索没开始”，而 AdapterService 的 isDiscovering 仍是 false。</p>
+     *
+     * <p>职责：所有搜索入口都在这里串行化（主线程 Handler），对外仍只有
+     * {@link #startDiscovery(Activity)}/{@link #stopDiscovery()} 与 {@link DiscoveryListener}，
+     * 不新增并行公开 API。</p>
+     */
+    private final class DiscoveryController {
+        /** cancel 后等待 STOPPED 落地的窗口 */
+        private static final long CANCEL_SETTLE_MS = 500L;
+        /** cancel 的最大次数；超过后强制 start，避免在“永远为 true”的机型上卡死 */
+        private static final int CANCEL_MAX_ATTEMPTS = 3;
+        /** 一次 cancel 阶段的总时限 */
+        private static final long CANCEL_TOTAL_TIMEOUT_MS = 2000L;
+        /** start 受理后等待 STARTED 的时限；超时即判定与栈脱同步 */
+        private static final long START_TIMEOUT_MS = 1500L;
+        /** 会话看门狗：ACTIVE 后这么久没有 FINISHED 就主动复位 */
+        private static final long SESSION_WATCHDOG_MS = 15000L;
+        /** 两轮搜索之间的最小间隔，避开上一轮的收尾作业 */
+        private static final long MIN_RESTART_GAP_MS = 3000L;
+        /**
+         * start 超时后的退避序列，累计跨度要盖住 BTM_ReadRemoteDeviceName 的 30s 超时窗口。
+         * 旧实现几百毫秒的快速重试会全部落在这个窗口内，必然失败。
+         */
+        private static final long[] RETRY_DELAYS_MS = {1500L, 3000L, 8000L, 16000L};
+
+        private enum State {IDLE, WAITING_CANCEL, WAITING_STACK, STARTING, ACTIVE}
+
+        private State state = State.IDLE;
+        /** 多入口合并标记：会话进行中再次请求搜索，只记一次，绝不叠加 start */
+        private boolean pending;
+        private boolean sessionActive;
+        private int retryCount;
+        private int cancelAttempt;
+        private long cancelDeadline;
+        private long lastFinishAt;
+
+        private final Runnable restartRunnable = () -> {
+            if (state == State.IDLE || state == State.WAITING_STACK) {
+                log("重启定时器触发，state=" + state);
+                beginStart(null);
+            }
+        };
+        private final Runnable cancelSettleRunnable = () -> {
+            if (state != State.WAITING_CANCEL) {
+                return;
+            }
+            if (realtimeDiscovering()) {
+                waitCancelOrForce();
+            } else {
+                log("cancel 后已确认 isDiscovering=false，开始 start");
+                forceStart();
+            }
+        };
+        private final Runnable startTimeoutRunnable = () -> {
+            if (state != State.STARTING) {
+                return;
+            }
+            log("start 后 " + START_TIMEOUT_MS + "ms 未收到 STARTED，判定与栈脱同步");
+            // 复位缓存，避免上层永远以为“正在搜索”
+            isDiscovering = false;
+            handleStartFailure("已接受搜索请求但未开始，蓝牙服务可能处于异常状态");
+        };
+        private final Runnable sessionWatchdogRunnable = () -> {
+            if (state == State.ACTIVE) {
+                log("会话看门狗触发：ACTIVE 超过 " + SESSION_WATCHDOG_MS + "ms 无 FINISHED，主动 cancel 复位");
+                cancelForcefully("看门狗复位");
+                lastFinishAt = SystemClock.elapsedRealtime();
+                setState(State.IDLE, "看门狗复位");
+                isDiscovering = false;
+                if (sessionActive) {
+                    sessionActive = false;
+                    handleDiscoveryCallback(false, null, -120, -1, "");
+                }
+                if (pending) {
+                    pending = false;
+                    scheduleRestart(MIN_RESTART_GAP_MS);
+                }
+            }
+        };
+
+        void start(@Nullable Activity activity) {
+            mainHandler.post(() -> handleStart(activity));
+        }
+
+        void stop() {
+            mainHandler.post(() -> {
+                log("stopDiscovery 请求：state=" + state + ", isDiscovering=" + realtimeDiscovering());
+                pending = false;
+                retryCount = 0;
+                cancelAttempt = 0;
+                removeAllTimers();
+                cancelForcefully("stopDiscovery");
+                setState(State.IDLE, "stopDiscovery");
+                if (sessionActive) {
+                    sessionActive = false;
+                    handleDiscoveryCallback(false, null, -120, -1, "");
+                }
+            });
+        }
+
+        /** 供广播接收者调用：STARTED */
+        void onStarted() {
+            mainHandler.post(() -> {
+                // 退避等待中也可能收到“迟到的 STARTED”，说明上一次请求最终还是启动了
+                if (state != State.STARTING && state != State.WAITING_STACK) {
+                    log("收到 STARTED 但 state=" + state + "，忽略（不是本库发起的会话）");
+                    return;
+                }
+                removeAllTimers();
+                isDiscovering = true;
+                setState(State.ACTIVE, "收到 STARTED");
+                retryCount = 0;
+                cancelAttempt = 0;
+                sessionActive = true;
+                mainHandler.postDelayed(sessionWatchdogRunnable, SESSION_WATCHDOG_MS);
+                handleDiscoveryCallback(true, null, -120, -1, "");
+            });
+        }
+
+        /** 供广播接收者调用：FINISHED */
+        void onFinished() {
+            mainHandler.post(() -> {
+                log("收到 FINISHED：state=" + state + ", pending=" + pending);
+                isDiscovering = false;
+                lastFinishAt = SystemClock.elapsedRealtime();
+                if (state == State.WAITING_STACK) {
+                    // 属于上一轮的残留广播，不打断已排好的退避重试
+                    log("退避等待中收到残留 FINISHED，保持重试计划不变");
+                    return;
+                }
+                removeAllTimers();
+                setState(State.IDLE, "收到 FINISHED");
+                retryCount = 0;
+                cancelAttempt = 0;
+                if (sessionActive) {
+                    sessionActive = false;
+                    handleDiscoveryCallback(false, null, -120, -1, "");
+                }
+                if (pending) {
+                    pending = false;
+                    scheduleRestart(MIN_RESTART_GAP_MS);
+                }
+            });
+        }
+
+        /** 蓝牙关闭时复位，避免状态机停在 ACTIVE */
+        void onBluetoothOff() {
+            mainHandler.post(() -> {
+                removeAllTimers();
+                pending = false;
+                retryCount = 0;
+                cancelAttempt = 0;
+                isDiscovering = false;
+                setState(State.IDLE, "蓝牙已关闭");
+            });
+        }
+
+        private void handleStart(@Nullable Activity activity) {
+            log("startDiscovery 请求：state=" + state + ", isDiscovering=" + realtimeDiscovering() + ", pending=" + pending);
+            switch (state) {
+                case IDLE:
+                    retryCount = 0;
+                    cancelAttempt = 0;
+                    pending = false;
+                    beginStart(activity);
+                    break;
+                case WAITING_CANCEL:
+                    // 已经在 cancel 等待流程里，不再叠加
+                    log("正处于 WAITING_CANCEL，忽略本次请求");
+                    break;
+                case WAITING_STACK:
+                case STARTING:
+                case ACTIVE:
+                    pending = true;
+                    log("会话进行中，合并本次搜索请求（pending=true）");
+                    break;
+            }
+        }
+
+        @SuppressLint("MissingPermission")
+        private void beginStart(@Nullable Activity activity) {
+            if (!isInitialized() || bluetoothAdapter == null) {
+                return;
+            }
+            Context context = activity == null ? application : activity;
+            if (!isLocationEnabled(context)) {
+                dispatchError(DiscoveryListener.ERROR_LOCATION_SERVICE_CLOSED,
+                        "Unable to scan for Bluetooth devices, the phone's location service is not turned on.");
+                return;
+            }
+            if (noLocationPermission(context)) {
+                dispatchError(DiscoveryListener.ERROR_LACK_LOCATION_PERMISSION,
+                        "Unable to scan for Bluetooth devices, lack location permission.");
+                return;
+            }
+            if (noScanPermission(context)) {
+                dispatchError(DiscoveryListener.ERROR_LACK_SCAN_PERMISSION,
+                        "Unable to scan for Bluetooth devices, lack scan permission.");
+                return;
+            }
+            if (noConnectPermission(context)) {
+                dispatchError(DiscoveryListener.ERROR_LACK_CONNECT_PERMISSION,
+                        "Unable to scan for Bluetooth devices, lack connect permission.");
+                return;
+            }
+            // 两轮搜索至少间隔 3s，避开上一轮 FINISHED 后的栈收尾作业
+            long sinceFinish = SystemClock.elapsedRealtime() - lastFinishAt;
+            if (lastFinishAt != 0 && sinceFinish < MIN_RESTART_GAP_MS) {
+                long delay = MIN_RESTART_GAP_MS - sinceFinish;
+                log("距上次会话结束仅 " + sinceFinish + "ms，延后 " + delay + "ms 再 start");
+                scheduleRestart(delay);
+                return;
+            }
+            if (realtimeDiscovering()) {
+                waitCancelOrForce();
+            } else {
+                forceStart();
+            }
+        }
+
+        /**
+         * 先 cancel 再 start。为什么不能直接用缓存的 isDiscovering：缓存可能长期为 false，
+         * 而栈侧仍有未落地的发现作业，因此这里以实时状态 + 有限次数 cancel 为准。
+         */
+        private void waitCancelOrForce() {
+            long now = SystemClock.elapsedRealtime();
+            if (cancelAttempt == 0) {
+                cancelDeadline = now + CANCEL_TOTAL_TIMEOUT_MS;
+            }
+            if (cancelAttempt >= CANCEL_MAX_ATTEMPTS || now >= cancelDeadline) {
+                log("cancel 已达上限（attempt=" + cancelAttempt + "），强制 start");
+                cancelAttempt = 0;
+                forceStart();
+                return;
+            }
+            cancelAttempt++;
+            setState(State.WAITING_CANCEL, "第 " + cancelAttempt + " 次 cancel");
+            cancelForcefully("等待取消");
+            mainHandler.postDelayed(cancelSettleRunnable, CANCEL_SETTLE_MS);
+        }
+
+        @SuppressLint("MissingPermission")
+        private void forceStart() {
+            mainHandler.removeCallbacks(cancelSettleRunnable);
+            cancelAttempt = 0;
+            removeRestart();
+            setState(State.STARTING, "startDiscovery");
+            isDiscovering = false;
+            boolean accepted;
+            try {
+                accepted = bluetoothAdapter.startDiscovery();
+            } catch (Throwable e) {
+                log("startDiscovery 异常：" + e.getClass().getSimpleName());
+                accepted = false;
+            }
+            log("startDiscovery -> " + accepted + "（第 " + (retryCount + 1) + " 次尝试，isDiscovering="
+                    + realtimeDiscovering() + "）");
+            if (!accepted) {
+                handleStartFailure("startDiscovery 被系统拒绝");
+                return;
+            }
+            mainHandler.postDelayed(startTimeoutRunnable, START_TIMEOUT_MS);
+        }
+
+        private void handleStartFailure(String reason) {
+            // 先清掉所有定时器，避免重试与看门狗重复回调
+            removeAllTimers();
+            cancelAttempt = 0;
+            // 即使实时状态是 false 也强制 cancel：清掉 AdapterService 可能残留的 mDiscovering
+            cancelForcefully("start 失败兜底");
+            if (retryCount < RETRY_DELAYS_MS.length) {
+                long delay = RETRY_DELAYS_MS[retryCount];
+                retryCount++;
+                setState(State.WAITING_STACK, "第 " + retryCount + "/" + RETRY_DELAYS_MS.length
+                        + " 次退避重试，" + delay + "ms 后发起");
+                scheduleRestart(delay);
+            } else {
+                retryCount = 0;
+                pending = false;
+                setState(State.IDLE, "重试耗尽");
+                log("重试耗尽（累计约 33s 仍无 STARTED），回调错误");
+                dispatchError(DiscoveryListener.ERROR_SCAN_FAILED,
+                        reason + "，请关闭后重新打开蓝牙");
+            }
+        }
+
+        @SuppressLint("MissingPermission")
+        private void cancelForcefully(String reason) {
+            if (bluetoothAdapter == null) {
+                return;
+            }
+            boolean before = realtimeDiscovering();
             try {
                 bluetoothAdapter.cancelDiscovery();
+                log("cancelDiscovery（" + reason + "）：已调用，调用前 isDiscovering=" + before);
             } catch (Throwable e) {
-                BTLogger.instance.e(DEBUG_TAG, "停止搜索异常", e);
+                log("cancelDiscovery（" + reason + "）异常：" + e.getClass().getSimpleName());
             }
+        }
+
+        private void dispatchError(int errorCode, String errorMsg) {
+            BTLogger.instance.e(DEBUG_TAG, errorMsg);
+            handleDiscoveryCallback(false, null, -120, errorCode, errorMsg);
+        }
+
+        @SuppressLint("MissingPermission")
+        private boolean realtimeDiscovering() {
+            if (bluetoothAdapter == null) {
+                return false;
+            }
+            try {
+                return bluetoothAdapter.isDiscovering();
+            } catch (Throwable e) {
+                return false;
+            }
+        }
+
+        private void scheduleRestart(long delay) {
+            removeRestart();
+            mainHandler.postDelayed(restartRunnable, delay);
+        }
+
+        private void removeRestart() {
+            mainHandler.removeCallbacks(restartRunnable);
+        }
+
+        private void removeAllTimers() {
+            mainHandler.removeCallbacks(restartRunnable);
+            mainHandler.removeCallbacks(cancelSettleRunnable);
+            mainHandler.removeCallbacks(startTimeoutRunnable);
+            mainHandler.removeCallbacks(sessionWatchdogRunnable);
+        }
+
+        private void setState(State newState, String reason) {
+            if (state != newState) {
+                log("state " + state + " -> " + newState + "（" + reason + "）");
+                state = newState;
+            }
+        }
+
+        void release() {
+            mainHandler.post(() -> {
+                removeAllTimers();
+                pending = false;
+                sessionActive = false;
+                retryCount = 0;
+                cancelAttempt = 0;
+                isDiscovering = false;
+                state = State.IDLE;
+            });
+        }
+
+        /** 日志统一走库的 isDebugMode 开关，tag 固定为 BTManager，便于真机过滤 */
+        private void log(String message) {
+            BTLogger.instance.d(DEBUG_TAG, "[DiscoveryController] " + message);
         }
     }
 
@@ -734,6 +1064,8 @@ public class BTManager {
                 }
             }
             stateBroadcastReceiver = null;
+            // 接收者常驻，仅在整体释放时注销；状态机的定时器也在这里一并清掉
+            discoveryController.release();
             unregisterDiscoveryReceiver();
         }
         if (bluetoothAdapter != null) {
