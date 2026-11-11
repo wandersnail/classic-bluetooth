@@ -14,10 +14,16 @@ def lib_website = 'https://github.com/wandersnail/classic-bluetooth'
 group = lib_group
 version = lib_version
 
+def signingKeyFile = findProperty('signing.keyFile') ?: System.getenv('SIGNING_KEY_FILE')
+def signingPassword = findProperty('signing.password') ?: System.getenv('SIGNING_PASSWORD')
+def signingAvailable = signingKeyFile != null && signingPassword != null &&
+        new File(signingKeyFile.toString()).isFile()
+
 signing {
-    // 本机没有配置签名密钥时（例如只执行 publishToMavenLocal 做联调），跳过签名任务，
-    // 否则 signArchives/signReleasePublication 会因缺少 signatory 直接失败
-    required { project.hasProperty('signing.keyId') }
+    required { signingAvailable }
+    if (signingAvailable) {
+        useInMemoryPgpKeys(new File(signingKeyFile.toString()).getText('UTF-8'), signingPassword.toString())
+    }
     sign configurations.archives
 }
 
