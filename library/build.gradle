@@ -114,6 +114,7 @@ publishing {
 }
 
 signing {
+    required { signingAvailable }
     sign publishing.publications.release
 }
 
